@@ -13,7 +13,8 @@
     "grid-engine": "^2.52.1",
     "phaser": "^4.0.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "redis": "^5.12.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
