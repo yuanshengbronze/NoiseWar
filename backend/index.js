@@ -28,7 +28,7 @@ app.post('/api/event/:eventId/login', async (req, res) => {
             res.json({ success: true });
         } else {
             // Wrong password!
-            res.status(401).json({ error: "Wrong password! "});
+            res.status(401).json({ error: "Username is taken / Wrong password! "});
         }
     }
 })
