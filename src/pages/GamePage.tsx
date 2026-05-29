@@ -1,11 +1,17 @@
-import { useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { type IRefPhaserGame, PhaserGame } from "../PhaserGame";
 import { MainMenu } from "../game/scenes/MainMenu";
 import { Game } from "../game/scenes/Game";
 import annyang from "annyang";
+import Login from "./Login";
 
 function GamePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const phaserRef = useRef<IRefPhaserGame | null>(null);
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  }
 
   useEffect(() => {
     if (annyang.isSpeechRecognitionSupported()) {
@@ -60,6 +66,10 @@ function GamePage() {
       }
     }
   };
+
+  if (!isLoggedIn) {
+     return <Login loginSuccess={handleLogin}/>
+  }
 
   return (
     <div id="app">
