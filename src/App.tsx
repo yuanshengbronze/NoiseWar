@@ -1,12 +1,19 @@
 import { useRef, useState } from "react";
 import { type IRefPhaserGame, PhaserGame } from "./PhaserGame";
 import { MainMenu } from "./game/scenes/MainMenu";
+import Login from "./Login";
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   const [canMoveSprite, setCanMoveSprite] = useState(true);
 
   const phaserRef = useRef<IRefPhaserGame | null>(null);
   const [, setSpritePosition] = useState({ x: 0, y: 0 });
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  }
 
   const changeScene = () => {
     if (phaserRef.current) {
@@ -34,6 +41,10 @@ function App() {
   const currentScene = (scene: Phaser.Scene) => {
     setCanMoveSprite(scene.scene.key !== "MainMenu");
   };
+
+  if (!isLoggedIn) {
+     return <Login loginSuccess={handleLogin}/>
+  }
 
   return (
     <div id="app">
