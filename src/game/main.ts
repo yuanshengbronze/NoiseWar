@@ -5,10 +5,11 @@ import { Game as MainGame } from './scenes/Game';
 import { MainMenu } from './scenes/MainMenu';
 import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
+import { GameClear } from "./scenes/GameClear";
 
 const config: Phaser.Types.Core.GameConfig = {
     type: AUTO,
-    width: 1024,
+    width: 960,
     height: 768,
     parent: 'game-container',
     backgroundColor: '#028af8',
@@ -17,7 +18,8 @@ const config: Phaser.Types.Core.GameConfig = {
         Preloader,
         MainMenu,
         MainGame,
-        GameOver
+        GameOver,
+        GameClear
     ],
     plugins: {
         scene: [{
