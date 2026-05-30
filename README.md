@@ -1,6 +1,6 @@
 # NoiseWar
 
-Noise War is a 2-player web game, where players can compete by completing a vertical path in a given grid map as quickly as possible using voice inputs such as Up, Down, Left, and Right. Players can also sabotage each other by either shouting the wrong commands, or sending in-game tasks to their rival (such as spelling a difficult word)
+Noise War is a 2-player web game, where players can compete by completing a vertical path in a given grid map as quickly as possible using voice inputs such as Up, Down, Left, and Right. Players can also sabotage each other by either shouting the wrong commands, or sending in-game tasks to their rival (such as spelling a difficult word).
 
 # Motivation
 
