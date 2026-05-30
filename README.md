@@ -35,7 +35,7 @@ We are motivated to explore how voice can be turned into a core, compelling game
 
     2. Join a room, where a user is prompted to enter a room code. The backend then validates the code. If the room is not full (< 2 people), the user enters the room.
 
-5.  Game Skeleton - COMPLETED'
+5.  Game Skeleton - COMPLETED
    
     The game is made using Phaser. A Phaser game consists of scenes, which are logical sections of a game. There are currently 6 Scenes:
     1. Boot (shown while booting)
@@ -68,18 +68,18 @@ We are motivated to explore how voice can be turned into a core, compelling game
 
 11.  Visuals and Animations - IN PROGRESS
     
-    Currently, the maze map is created from the Cloud City tileset (https://finalbossblues.itch.io/cloud-city-tileset). A yellow tile is the starting point, and a purple tile is the target point. Grey tiles are the maze walls, while plain blue tiles are used for the background.
+     Currently, the maze map is created from the Cloud City tileset (https://finalbossblues.itch.io/cloud-city-tileset). A yellow tile is the starting point, and a purple tile is the target point. Grey tiles are the maze walls, while plain blue tiles are used for the background.
 
-    The player sprite sheet is Fluffy (https://annoraaq.github.io/grid-engine/assets/fluffy.png).
+     The player sprite sheet is Fluffy (https://annoraaq.github.io/grid-engine/assets/fluffy.png).
 
-    These assets are used only for proof-of-concept and might be changed in the future to ensure a consistent art direction. There are still no animations being implemented.
+     These assets are used only for proof-of-concept and might be changed in the future to ensure a consistent art direction. There are still no animations being implemented.
 
 11.  Randomly generated maps - NOT STARTED
 
-    For our proof-of-concept, we manually designed a maze as our map to demonstrate grid-based movements using Tiled.
+     For our proof-of-concept, we manually designed a maze as our map to demonstrate grid-based movements using Tiled.
 
-    Our proposed plan is to randomly generate a map for every room that is created to enhance users’ interest in the game. We plan to implement this by using a maze generation algorithm, which we can then export to Tiled.
+     Our proposed plan is to randomly generate a map for every room that is created to enhance users’ interest in the game. We plan to implement this by using a maze generation algorithm, which we can then export to Tiled.
 
 11.  User profile - IN PROGRESS
     
-    Our proposed plan is to make a user profile page where users can see their match history and stats (matches won, matches lost, etc). Currently, we have only made a login system that stores users’ username and password.
+     Our proposed plan is to make a user profile page where users can see their match history and stats (matches won, matches lost, etc). Currently, we have only made a login system that stores users’ username and password.
