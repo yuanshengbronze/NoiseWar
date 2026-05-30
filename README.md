@@ -19,13 +19,15 @@ We are motivated to explore how voice can be turned into a core, compelling game
 # Features
 
 1.  Login System - COMPLETED
+
     Our login system is inspired by when2meet.com.
 
     Upon entering the website, users will be prompted to input a username and a password. If the username is not registered yet, the new username with its corresponding password will be stored inside the database. A registered username with an incorrect password will lead to an error message. A successful login/registration brings users to the main page.
 
     Our proof-of-concept plan is built using a React (Vite) frontend communicating with an Express backend connected to a Redis database layer. We have successfully implemented a unified sign up/login route. A single POST endpoint /api/event/:eventId/login for both registration and authentication. The room key is stored under the Redis hash room:${eventId}:users to check for usernames. If the username exists, its password is validated. If it doesn’t, the program registers it automatically.
 
-2.  Matchmaking system - NOT STARTED
+3.  Matchmaking system - NOT STARTED
+   
     Our proposed matchmaking system allows users to create their own private rooms and invite other users to play with them through randomly generated room codes. This matchmaking system is similar to games like Among Us and Jackbox.
 
     Upon logging in, a user has 2 options:
@@ -33,7 +35,8 @@ We are motivated to explore how voice can be turned into a core, compelling game
 
     2. Join a room, where a user is prompted to enter a room code. The backend then validates the code. If the room is not full (< 2 people), the user enters the room.
 
-3.  Game Skeleton - COMPLETED
+5.  Game Skeleton - COMPLETED'
+   
     The game is made using Phaser. A Phaser game consists of scenes, which are logical sections of a game. There are currently 6 Scenes:
     1. Boot (shown while booting)
     2. Preloader (preloading assets)
@@ -44,10 +47,12 @@ We are motivated to explore how voice can be turned into a core, compelling game
 
     More scenes can be added in the future.
 
-4.  Grid-Based Movement - COMPLETED
+7.  Grid-Based Movement - COMPLETED
+   
     The player character must move around in a grid-based map, meaning it cannot stop between tiles. We used Grid Engine, a Phaser plugin that makes implementing grid-based movement easier. The current maze map is created using Tiled, a free open-source 2D level editor.
 
-5.  Voice-based controls - IN PROGRESS
+9.  Voice-based controls - IN PROGRESS
+    
     We want the player character to move through voice commands. Currently, there are 5 commands:
     1.  Up
     2.  Down
@@ -61,17 +66,20 @@ We are motivated to explore how voice can be turned into a core, compelling game
 
     The player speed is still being tuned to ensure a satisfying “game-feel”. Sabotaging mechanics are still not implemented.
 
-6.  Visuals and Animations - IN PROGRESS
+11.  Visuals and Animations - IN PROGRESS
+    
     Currently, the maze map is created from the Cloud City tileset (https://finalbossblues.itch.io/cloud-city-tileset). A yellow tile is the starting point, and a purple tile is the target point. Grey tiles are the maze walls, while plain blue tiles are used for the background.
 
     The player sprite sheet is Fluffy (https://annoraaq.github.io/grid-engine/assets/fluffy.png).
 
     These assets are used only for proof-of-concept and might be changed in the future to ensure a consistent art direction. There are still no animations being implemented.
 
-7.  Randomly generated maps - NOT STARTED
+11.  Randomly generated maps - NOT STARTED
+
     For our proof-of-concept, we manually designed a maze as our map to demonstrate grid-based movements using Tiled.
 
     Our proposed plan is to randomly generate a map for every room that is created to enhance users’ interest in the game. We plan to implement this by using a maze generation algorithm, which we can then export to Tiled.
 
-8.  User profile - IN PROGRESS
+11.  User profile - IN PROGRESS
+    
     Our proposed plan is to make a user profile page where users can see their match history and stats (matches won, matches lost, etc). Currently, we have only made a login system that stores users’ username and password.
