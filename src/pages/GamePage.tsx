@@ -7,11 +7,13 @@ import Login from "./Login";
 
 function GamePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<string | null>(null);
   const phaserRef = useRef<IRefPhaserGame | null>(null);
 
-  const handleLogin = () => {
+  const handleLogin = (username: string) => {
     setIsLoggedIn(true);
-  }
+    setUser(username);
+  };
 
   useEffect(() => {
     if (annyang.isSpeechRecognitionSupported()) {
@@ -68,7 +70,7 @@ function GamePage() {
   };
 
   if (!isLoggedIn) {
-     return <Login loginSuccess={handleLogin}/>
+    return <Login loginSuccess={handleLogin} />;
   }
 
   return (
@@ -76,7 +78,7 @@ function GamePage() {
       <div>
         <h1> Welcome to NoiseWar!</h1>
       </div>
-      <PhaserGame ref={phaserRef} />
+      <PhaserGame ref={phaserRef} user={user} />
       <div>
         <div>
           <button className="button" onClick={changeScene}>

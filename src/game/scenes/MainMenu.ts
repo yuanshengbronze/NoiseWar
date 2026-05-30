@@ -7,6 +7,7 @@ export class MainMenu extends Scene
     background!: GameObjects.Image;
     title!: GameObjects.Text;
     subtitle!: GameObjects.Text;
+    logo !: GameObjects.Image;
 
     constructor ()
     {
@@ -17,14 +18,10 @@ export class MainMenu extends Scene
     {
         this.background = this.add.image(512, 384, 'background');
 
-        this.title = this.add.text(480, 460, 'Noise War', {
-            fontFamily: 'Arial Black', fontSize: 60, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-            align: 'center'
-        }).setOrigin(0.5).setDepth(100);
+        this.logo = this.add.image(480, 300, 'logo').setScale(1.5);
 
         this.subtitle = this.add.text(470, 600, 'Press the Next Button to Start!', {
-            fontFamily: 'Arial Black', fontSize: 38, color: '#ffffff',
+            fontFamily: 'Arial Black', fontSize: 35, color: '#ffffff',
             stroke: '#000000', strokeThickness: 8,
             align: 'center'
         }).setOrigin(0.5).setDepth(100);

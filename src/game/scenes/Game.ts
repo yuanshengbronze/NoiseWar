@@ -12,6 +12,8 @@ export class Game extends Scene
     gridEngine!: GridEngine;
     tilemap!: Phaser.Tilemaps.Tilemap;
     direction: integer = 0;
+    playerName!: Phaser.GameObjects.Text;
+    user!: string;
 
     constructor ()
     {
@@ -27,6 +29,7 @@ export class Game extends Scene
 
     create ()
     {
+        this.user = this.registry.get("user");
         //Camera
         this.camera = this.cameras.main;
         this.camera.setBackgroundColor(0x00ff00);
@@ -36,15 +39,15 @@ export class Game extends Scene
         this.background.setAlpha(0.5);
 
         //Player
-        this.player = this.add.sprite(100, 450, 'player').setScale(2);
-
-        /*Game Text
-        this.gameText = this.add.text(512, 384, 'NoiseWar', {
-            fontFamily: 'Arial Black', fontSize: 38, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-            align: 'center'
-        }).setOrigin(0.5).setDepth(100);
-        */
+        this.player = this.add.sprite(0, 0, 'player').setScale(2);
+        this.playerName = this.add.text(this.player.x, this.player.y, this.user, {
+            fontFamily: 'Arial', 
+            fontSize: 14, 
+            color: '#ffffff',
+            stroke: '#000000', 
+            strokeThickness: 3,
+            align: "center"
+        }).setDepth(100);
 
         //Controls
         this.cursors = this.input.keyboard!.createCursorKeys();
@@ -97,12 +100,14 @@ export class Game extends Scene
             this.gridEngine.move("player", Direction.DOWN); 
         } 
         */
-
+        
         if (this.cursors.space.isDown) {
             this.direction = 0;
         }
 
         const currPosition = this.gridEngine.getPosition("player")
+
+        this.playerName.setPosition(this.player.x, this.player.y - 15);
 
         const properties = this.tilemap.getTileAt(currPosition.x, currPosition.y)?.properties
 
