@@ -4,6 +4,7 @@ import { MainMenu } from "../game/scenes/MainMenu";
 import { Game } from "../game/scenes/Game";
 import annyang from "annyang";
 import Login from "./Login";
+import type { UI } from "../game/scenes/UI";
 
 function GamePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -19,9 +20,27 @@ function GamePage() {
     if (annyang.isSpeechRecognitionSupported()) {
       const control = (direction: integer) => {
         if (phaserRef.current) {
-          const scene = phaserRef.current.scene as Game;
-          if (scene && scene.scene.key === "Game") {
-            scene.move(direction);
+          const gameScene = phaserRef.current.scene as Game;
+          if (gameScene && gameScene.scene.key === "Game") {
+            gameScene.move(direction);
+          }
+        }
+      };
+
+      const sabotage = () => {
+        if (phaserRef.current) {
+          const gameScene = phaserRef.current.scene as Game;
+          if (gameScene && gameScene.scene.key === "Game") {
+            gameScene.sabotage();
+          }
+        }
+      };
+
+      const stopSabotage = () => {
+        if (phaserRef.current) {
+          const UIScene = phaserRef.current.scene?.scene.get("UI") as UI;
+          if (UIScene) {
+            UIScene.stopSabotage();
           }
         }
       };
@@ -42,6 +61,8 @@ function GamePage() {
         right: () => {
           control(4);
         },
+        sabotage: sabotage,
+        absolutely: stopSabotage,
         "*term": (term: string) => {
           console.log(term);
         },
