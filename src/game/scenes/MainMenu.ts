@@ -16,11 +16,11 @@ export class MainMenu extends Scene
 
     create ()
     {
-        this.background = this.add.image(512, 384, 'background');
+        this.background = this.add.image(400, 300, 'background');
 
-        this.logo = this.add.image(480, 300, 'logo').setScale(1.5);
+        this.logo = this.add.image(400, 300, 'logo').setScale(1.5);
 
-        this.subtitle = this.add.text(470, 600, 'Press the Next Button to Start!', {
+        this.subtitle = this.add.text(400, 500, 'Press the Next Button to Start!', {
             fontFamily: 'Arial Black', fontSize: 35, color: '#ffffff',
             stroke: '#000000', strokeThickness: 8,
             align: 'center'
@@ -31,6 +31,6 @@ export class MainMenu extends Scene
     
     changeScene ()
     {
-        this.scene.start('Game');
+        this.scene.start('UI');
     }
 }

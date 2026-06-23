@@ -6,11 +6,12 @@ import { MainMenu } from './scenes/MainMenu';
 import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
 import { GameClear } from "./scenes/GameClear";
+import {UI} from './scenes/UI';
 
 const config: Phaser.Types.Core.GameConfig = {
     type: AUTO,
-    width: 960,
-    height: 768,
+    width: 800,
+    height: 600, //1 maze tile is 16x16.
     parent: 'game-container',
     backgroundColor: '#028af8',
     scene: [
@@ -19,14 +20,15 @@ const config: Phaser.Types.Core.GameConfig = {
         MainMenu,
         MainGame,
         GameOver,
-        GameClear
+        GameClear,
+        UI
     ],
     plugins: {
         scene: [{
             key: 'gridEngine',
             plugin: GridEngine,
             mapping: "gridEngine",
-        },
+        }
         ]
     },
     pixelArt: true

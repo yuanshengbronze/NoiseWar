@@ -1,19 +1,19 @@
 import { EventBus } from '../EventBus';
-import { Scene } from 'phaser';
+import { Scene} from 'phaser';
 import { Direction, GridEngine } from 'grid-engine';
 
 export class Game extends Scene
 {
     camera!: Phaser.Cameras.Scene2D.Camera;
     background!: Phaser.GameObjects.Image;
-    gameText!: Phaser.GameObjects.Text;
     player!: Phaser.GameObjects.Sprite;
     cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     gridEngine!: GridEngine;
     tilemap!: Phaser.Tilemaps.Tilemap;
     direction: integer = 0;
-    playerName!: Phaser.GameObjects.Text;
+    playerName!: Phaser.GameObjects.BitmapText;
     user!: string;
+    timer!: Phaser.Time.TimerEvent;
 
     constructor ()
     {
@@ -25,29 +25,15 @@ export class Game extends Scene
         this.load.spritesheet('player', './fluffy.png', { frameWidth: 16, frameHeight: 20 });
         this.load.image("tiles", "cloud_tileset.png"); 
         this.load.tilemapTiledJSON("tilemap", "maze.json");
+        this.load.bitmapFont('pixelfont', 'fonts/' + 'square_6x6' + '.png', 'fonts/' + 'square_6x6' + '.xml');
     }
 
     create ()
     {
         this.user = this.registry.get("user");
-        //Camera
-        this.camera = this.cameras.main;
-        this.camera.setBackgroundColor(0x00ff00);
-        
-        //Background
-        this.background = this.add.image(512, 384, 'background');
-        this.background.setAlpha(0.5);
 
         //Player
-        this.player = this.add.sprite(0, 0, 'player').setScale(2);
-        this.playerName = this.add.text(this.player.x, this.player.y, this.user, {
-            fontFamily: 'Arial', 
-            fontSize: 14, 
-            color: '#ffffff',
-            stroke: '#000000', 
-            strokeThickness: 3,
-            align: "center"
-        }).setDepth(100);
+        this.player = this.add.sprite(0, 0, 'player');
 
         //Controls
         this.cursors = this.input.keyboard!.createCursorKeys();
@@ -57,9 +43,7 @@ export class Game extends Scene
             key: "tilemap"
         }); 
         this.tilemap.addTilesetImage("cloud_tileset", "tiles"); 
-        for (let i = 0; i < this.tilemap.layers.length; i++) { 
-            this.tilemap.createLayer(i, "cloud_tileset", 0, 0).setScale(3); 
-        } 
+        this.tilemap.createLayer(0, "cloud_tileset", 0, 0); 
 
         //Grid Engine
         const gridEngineConfig = { 
@@ -75,10 +59,29 @@ export class Game extends Scene
         }; 
         this.gridEngine.create(this.tilemap, gridEngineConfig);
 
+        //Camera
+        const mapWidth = this.tilemap.widthInPixels;
+        const mapHeight = this.tilemap.heightInPixels;
+        this.camera = this.cameras.main;
+        this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
+        this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+        this.cameras.main.setZoom(4);
+        
+        //Timer
+        this.timer = this.time.addEvent({
+            delay: 5 * 60 * 1000, // ms
+            callback: this.changeScene,
+            //args: [],
+            callbackScope: this,
+            });
+        
+        //Player Text
+        this.playerName = this.add.bitmapText(this.player.x, this.player.y, 'pixelfont', this.user);
         EventBus.emit('current-scene-ready', this);
     }
 
     update() {
+        //CONTROLS
         if (this.direction == 3) { 
             this.gridEngine.move("player", Direction.LEFT); 
         } else if (this.direction == 4) { 
@@ -89,7 +92,6 @@ export class Game extends Scene
             this.gridEngine.move("player", Direction.DOWN); 
         } 
         
-        /*
         if (this.cursors.left.isDown) { 
             this.gridEngine.move("player", Direction.LEFT); 
         } else if (this.cursors.right.isDown) { 
@@ -99,19 +101,19 @@ export class Game extends Scene
         } else if (this.cursors.down.isDown) { 
             this.gridEngine.move("player", Direction.DOWN); 
         } 
-        */
         
         if (this.cursors.space.isDown) {
             this.direction = 0;
         }
 
+        //USERNAME TEXT
         const currPosition = this.gridEngine.getPosition("player")
+        this.playerName.setPosition(this.player.x, this.player.y - 5);
 
-        this.playerName.setPosition(this.player.x, this.player.y - 15);
-
+        //CLEAR CONDITION
         const properties = this.tilemap.getTileAt(currPosition.x, currPosition.y)?.properties
-
         if (properties.finish) {
+            this.scene.stop('UI');
             this.scene.start('GameClear');
         }
     }
@@ -122,6 +124,11 @@ export class Game extends Scene
 
     changeScene ()
     {
+        this.scene.stop('UI');
         this.scene.start('GameOver');
+    }
+
+    sabotage() {
+        this.scene.pause()
     }
 }

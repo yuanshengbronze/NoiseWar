@@ -17,10 +17,10 @@ export class GameOver extends Scene
         this.camera = this.cameras.main
         this.camera.setBackgroundColor(0xff0000);
 
-        this.background = this.add.image(480, 384, 'background');
+        this.background = this.add.image(400, 300, 'background');
         this.background.setAlpha(0.5);
 
-        this.gameOverText = this.add.text(480, 384, 'Game Over', {
+        this.gameOverText = this.add.text(400, 300, 'Game Over', {
             fontFamily: 'Arial Black', fontSize: 64, color: '#ffffff',
             stroke: '#000000', strokeThickness: 8,
             align: 'center'
@@ -31,6 +31,6 @@ export class GameOver extends Scene
 
     changeScene ()
     {
-        this.scene.start('MainMenu');
+        EventBus.emit('GamePage');
     }
 }
