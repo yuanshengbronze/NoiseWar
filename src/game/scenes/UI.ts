@@ -5,6 +5,7 @@ import {Game} from './Game';
 export class UI extends Scene
 {
     camera!: Phaser.Cameras.Scene2D.Camera;
+    timer!: Phaser.Time.TimerEvent;
     timeText!: Phaser.GameObjects.Text;
     sabotageText!: Phaser.GameObjects.Text;
     gameScene!: Game;
@@ -20,6 +21,15 @@ export class UI extends Scene
     {
         this.camera = this.cameras.main;
         this.gameScene = this.scene.get('Game') as Game;
+
+        //TIMER
+        this.timer = this.time.addEvent({
+            delay: 1 * 60 * 1000, // ms
+            //args: [],
+            callback: this.timeOut,
+            callbackScope: this
+        });
+
         this.timeText = this.add.text(0, 0, "0:00", {
             fontFamily: 'Arial', 
             fontSize: 26, 
@@ -31,7 +41,7 @@ export class UI extends Scene
 
         this.cursors = this.input.keyboard!.createCursorKeys();
 
-        this.sabotageText = this.add.text(170, 300, "YOU ARE SABOTAGED! \nTO PROCEED, SAY 'ABSOLUTELY'", {
+        this.sabotageText = this.add.text(170, 300, "YOU ARE SABOTAGED! \nTO PROCEED, SPELL 'ABSOLUTELY'", {
             fontFamily: 'Arial', 
             fontSize: 30, 
             color: '#ff0000',
@@ -45,19 +55,19 @@ export class UI extends Scene
     }
 
     update() {
+        //COUNTDOWN
+        if (this.timer) {
+            const remainingSeconds = this.timer.getRemainingSeconds() + 1;
+            const min = Math.floor(remainingSeconds / 60);
+            const sec = Math.floor(remainingSeconds % 60);
+
+            const stringMin = min < 10 ? `0${min}` : `${min}`;
+            const stringSec = sec < 10 ? `0${sec}` : `${sec}`;
+
+            this.timeText.setText(`${stringMin}:${stringSec}`);
+        }
+
         if (this.gameScene) {
-            //COUNTDOWN
-            if (this.gameScene.timer) {
-                const remainingSeconds = this.gameScene.timer.getRemainingSeconds() + 1;
-                const min = Math.floor(remainingSeconds / 60);
-                const sec = Math.floor(remainingSeconds % 60);
-
-                const stringMin = min < 10 ? `0${min}` : `${min}`;
-                const stringSec = sec < 10 ? `0${sec}` : `${sec}`;
-
-                this.timeText.setText(`${stringMin}:${stringSec}`);
-            }
-
             //SABOTAGE
             if (this.gameScene.scene.isPaused()) {
                 this.sabotageText.setVisible(true);
@@ -73,5 +83,11 @@ export class UI extends Scene
     
     stopSabotage() {
         this.gameScene.scene.resume();
+    }
+
+    timeOut() {
+        this.scene.stop('UI');
+        this.scene.stop('Game');
+        this.scene.start('GameOver');
     }
 }
