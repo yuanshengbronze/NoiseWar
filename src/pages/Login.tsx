@@ -1,5 +1,5 @@
 import { useState } from "react";
-
+import API_URL from "../config";
 interface LoginProps {
   loginSuccess: (username: string) => void;
 }
@@ -20,14 +20,11 @@ function Login({ loginSuccess }: LoginProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const response = await fetch(
-      `http://localhost:8080/api/event/lobby/login`,
-      {
-        method: "POST",
-        headers: { "Content-type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      },
-    );
+    const response = await fetch(`${API_URL}/api/event/lobby/login`, {
+      method: "POST",
+      headers: { "Content-type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
 
     const data = await response.json();
     response.ok
