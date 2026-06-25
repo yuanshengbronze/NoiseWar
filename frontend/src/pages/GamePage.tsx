@@ -8,17 +8,50 @@ import annyang from "annyang";
 import Login from "./Login";
 import type { UI } from "../game/scenes/UI";
 import Lobby from "./Lobby";
+import Navbar from "../components/Navbar";
+import AccountPage from "./AccountPage";
 
 const socket = io("http://localhost:8080");
+
+interface CreateRoomResponse {
+  success: boolean;
+  roomCode?: string;
+  error?: string;
+}
+
+interface JoinRoomResponse {
+  success: boolean;
+  roomCode?: string;
+  error?: string;
+}
+
+interface UserProfileResponse {
+  username: string;
+  sabotageWords: string[];
+}
+
+interface SaveSabotageWordsResponse {
+  success: boolean;
+  sabotageWords: string[];
+  error?: string;
+}
 
 function GamePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<string | null>(null);
   const [roomCode, setRoomCode] = useState<string>("");
-  const [currentPhase, setCurrentPhase] = useState<"lobby" | "playing">(
-    "lobby",
-  );
+  const [currentPhase, setCurrentPhase] = useState<
+    "lobby" | "account" | "playing"
+  >("lobby");
+  const [isCreatedRoomReady, setIsCreatedRoomReady] = useState(false);
+  const [sabotageWords, setSabotageWords] = useState<string[]>([]);
+  const matchStats = {
+    matchesPlayed: 8,
+    wins: 5,
+    losses: 3,
+  };
   const phaserRef = useRef<IRefPhaserGame | null>(null);
+  const activeSabotageWord = sabotageWords[0] || "absolutely";
 
   const handleLogin = (username: string) => {
     setIsLoggedIn(true);
@@ -26,19 +59,79 @@ function GamePage() {
   };
 
   const handleCreateRoom = () => {
-    socket.emit("create-room", { username: user }, (response: any) => {
-      if (response.success) {
-        console.log("Successfully created room:", response.roomCode);
-        setRoomCode(response.roomCode);
-      } else {
-        alert("Could not create room: " + response.error);
-      }
-    });
+    socket.emit(
+      "create-room",
+      { username: user },
+      (response: CreateRoomResponse) => {
+        if (response.success) {
+          console.log("Successfully created room:", response.roomCode);
+          setRoomCode(response.roomCode ?? "");
+          setIsCreatedRoomReady(false);
+        } else {
+          alert("Could not create room: " + response.error);
+        }
+      },
+    );
+  };
+
+  const startMatchRoom = (code: string) => {
+    setRoomCode(code);
+    setCurrentPhase("playing");
+  };
+
+  const startCreatedMatchRoom = (code: string) => {
+    if (!isCreatedRoomReady) {
+      alert("Waiting for one more player to join this room.");
+      return;
+    }
+
+    startMatchRoom(code);
   };
 
   const handleEnterRoom = (code: string) => {
-    setRoomCode(code);
-    setCurrentPhase("playing");
+    socket.emit(
+      "join-room",
+      { username: user, roomCode: code },
+      (response: JoinRoomResponse) => {
+        if (response.success) {
+          startMatchRoom(response.roomCode ?? code);
+        } else {
+          alert("Could not enter room: " + response.error);
+        }
+      },
+    );
+  };
+
+  const handleSabotageWordsChange = async (words: string[]) => {
+    if (!user) {
+      return;
+    }
+
+    const previousWords = sabotageWords;
+    setSabotageWords(words);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/user/${encodeURIComponent(user)}/sabotage-words`,
+        {
+          method: "PUT",
+          headers: { "Content-type": "application/json" },
+          body: JSON.stringify({ sabotageWords: words }),
+        },
+      );
+
+      const data = (await response.json()) as SaveSabotageWordsResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save sabotage words.");
+      }
+
+      setSabotageWords(data.sabotageWords);
+    } catch (error) {
+      console.error(error);
+      setSabotageWords(previousWords);
+      alert("Could not save sabotage words. Please try again.");
+    }
   };
 
   const startMainMenu = () => {
@@ -65,6 +158,7 @@ function GamePage() {
 
       setCurrentPhase("lobby");
       setRoomCode("");
+      setIsCreatedRoomReady(false);
     });
 
     return () => {
@@ -77,6 +171,44 @@ function GamePage() {
       startMainMenu();
     }
   }, [currentPhase]);
+
+  useEffect(() => {
+    const markCreatedRoomReady = () => {
+      setIsCreatedRoomReady(true);
+    };
+
+    socket.on("game-started", markCreatedRoomReady);
+
+    return () => {
+      socket.off("game-started", markCreatedRoomReady);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const fetchUserProfile = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:8080/api/user/${encodeURIComponent(user)}/profile`,
+        );
+        const data = (await response.json()) as UserProfileResponse;
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch user profile.");
+        }
+
+        setSabotageWords(data.sabotageWords);
+      } catch (error) {
+        console.error(error);
+        setSabotageWords([]);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
 
   useEffect(() => {
     if (annyang.isSpeechRecognitionSupported()) {
@@ -124,7 +256,7 @@ function GamePage() {
           control(4);
         },
         sabotage: sabotage,
-        absolutely: stopSabotage,
+        [activeSabotageWord]: stopSabotage,
         "*term": (term: string) => {
           console.log(term);
         },
@@ -135,12 +267,13 @@ function GamePage() {
       console.log("voice recognition started");
 
       return () => {
+        annyang.removeCommands();
         annyang.abort();
       };
     } else {
       console.log("voice recognition not supported");
     }
-  }, []);
+  }, [activeSabotageWord]);
 
   if (!isLoggedIn) {
     return <Login loginSuccess={handleLogin} />;
@@ -152,6 +285,23 @@ function GamePage() {
       data-room-code={roomCode ?? ""}
       style={{ width: "100%", height: "100vh", overflow: "hidden" }}
     >
+      {currentPhase !== "playing" && user && (
+        <Navbar
+          username={user}
+          currentPage={currentPhase}
+          onNavigate={setCurrentPhase}
+        />
+      )}
+
+      {currentPhase === "account" && user && (
+        <AccountPage
+          username={user}
+          sabotageWords={sabotageWords}
+          matchStats={matchStats}
+          onSabotageWordsChange={handleSabotageWordsChange}
+        />
+      )}
+
       {/* Lobby page is displayed */}
       {currentPhase === "lobby" && (
         <div
@@ -159,7 +309,7 @@ function GamePage() {
             backgroundImage: `url("/assets/bg.png")`,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            height: "100vh",
+            height: "calc(100vh - 64px)",
             width: "100%",
             display: "flex",
             flexDirection: "column",
@@ -193,7 +343,9 @@ function GamePage() {
 
           <Lobby
             onCreateRoom={handleCreateRoom}
-            onEnterRoom={handleEnterRoom}
+            onJoinRoom={handleEnterRoom}
+            onEnterCreatedRoom={startCreatedMatchRoom}
+            canEnterCreatedRoom={isCreatedRoomReady}
             roomCode={roomCode}
           />
         </div>
@@ -211,7 +363,11 @@ function GamePage() {
           <br />
           <br />
           <br />
-          <PhaserGame ref={phaserRef} user={user} />
+          <PhaserGame
+            ref={phaserRef}
+            user={user}
+            sabotageWord={activeSabotageWord}
+          />
           <div>
             <button className="button" onClick={changeScene}>
               Next

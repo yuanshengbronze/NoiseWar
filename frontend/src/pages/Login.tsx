@@ -30,9 +30,11 @@ function Login({ loginSuccess }: LoginProps) {
     );
 
     const data = await response.json();
-    response.ok
-      ? loginSuccess(username)
-      : setErrorMessage(data.error || "Something went wrong");
+    if (response.ok) {
+      loginSuccess(username);
+    } else {
+      setErrorMessage(data.error || "Something went wrong");
+    }
   };
 
   return (

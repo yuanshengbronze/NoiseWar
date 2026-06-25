@@ -2,6 +2,29 @@
 
 Noise War is a 2-player web game, where players can compete by completing a vertical path in a given grid map as quickly as possible using voice inputs such as Up, Down, Left, and Right. Players can also sabotage each other by either shouting the wrong commands, or sending in-game tasks to their rival (such as spelling a difficult word).
 
+# Project Structure
+
+- `frontend/` contains the React, Vite, and Phaser frontend app.
+- `backend/` contains the Express, Socket.IO, and Redis backend server.
+
+# Local Development
+
+Start the frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Start the backend:
+
+```bash
+cd backend
+npm install
+node index.js
+```
+
 # Motivation
 
 Noise is an essential part of party games. Whether it is friends shouting over a game, cheering during a challenge, or laughing uncontrollably, the energy created by loud voices brings excitement and chaos in every party game. Therefore, we decided to build a game that uses noise as a core mechanic: Noise War.

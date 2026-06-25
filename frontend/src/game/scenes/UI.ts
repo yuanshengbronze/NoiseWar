@@ -10,6 +10,7 @@ export class UI extends Scene
     sabotageText!: Phaser.GameObjects.Text;
     gameScene!: Game;
     cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+    sabotageWord: string = "absolutely";
 
 
     constructor ()
@@ -21,6 +22,7 @@ export class UI extends Scene
     {
         this.camera = this.cameras.main;
         this.gameScene = this.scene.get('Game') as Game;
+        this.sabotageWord = this.registry.get("sabotageWord") || "absolutely";
 
         //TIMER
         this.timer = this.time.addEvent({
@@ -41,7 +43,7 @@ export class UI extends Scene
 
         this.cursors = this.input.keyboard!.createCursorKeys();
 
-        this.sabotageText = this.add.text(170, 300, "YOU ARE SABOTAGED! \nTO PROCEED, SPELL 'ABSOLUTELY'", {
+        this.sabotageText = this.add.text(170, 300, this.getSabotageMessage(), {
             fontFamily: 'Arial', 
             fontSize: 30, 
             color: '#ff0000',
@@ -83,6 +85,10 @@ export class UI extends Scene
     
     stopSabotage() {
         this.gameScene.scene.resume();
+    }
+
+    getSabotageMessage() {
+        return `YOU ARE SABOTAGED! \nTO PROCEED, SAY '${this.sabotageWord.toUpperCase()}'`;
     }
 
     timeOut() {

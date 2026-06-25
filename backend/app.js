@@ -9,6 +9,30 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+const getSabotageWordsKey = (username) => {
+    return `user:${encodeURIComponent(username)}:sabotageWords`;
+};
+
+const normalizeSabotageWords = (words) => {
+    if (!Array.isArray(words)) {
+        return [];
+    }
+
+    const seenWords = new Set();
+
+    return words
+        .filter((word) => typeof word === "string")
+        .map((word) => word.trim().toLowerCase())
+        .filter((word) => {
+            if (!word || seenWords.has(word)) {
+                return false;
+            }
+
+            seenWords.add(word);
+            return true;
+        });
+};
+
 app.post("/api/event/:eventId/login", async (req, res) => {
     const { eventId } = req.params;
     const { username, password } = req.body;
@@ -29,6 +53,38 @@ app.post("/api/event/:eventId/login", async (req, res) => {
             // Wrong password!
             res.status(401).json({ error: "Username is taken / Wrong password! " });
         }
+    }
+});
+
+app.get("/api/user/:username/profile", async (req, res) => {
+    try {
+        const { username } = req.params;
+        const savedWords = await client.get(getSabotageWordsKey(username));
+
+        res.json({
+            username,
+            sabotageWords: savedWords ? JSON.parse(savedWords) : []
+        });
+    } catch (error) {
+        console.error("Failed to fetch user profile: ", error);
+        res.status(500).json({ error: "Failed to fetch user profile." });
+    }
+});
+
+app.put("/api/user/:username/sabotage-words", async (req, res) => {
+    try {
+        const { username } = req.params;
+        const sabotageWords = normalizeSabotageWords(req.body.sabotageWords);
+
+        await client.set(
+            getSabotageWordsKey(username),
+            JSON.stringify(sabotageWords)
+        );
+
+        res.json({ success: true, sabotageWords });
+    } catch (error) {
+        console.error("Failed to save sabotage words: ", error);
+        res.status(500).json({ error: "Failed to save sabotage words." });
     }
 });
 
