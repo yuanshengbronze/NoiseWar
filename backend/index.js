@@ -1,5 +1,5 @@
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, ".env") });
+require("dotenv").config();
 
 const { createServer } = require("http");
 const { Server } = require("socket.io");
@@ -7,13 +7,20 @@ const { app, registerSocketHandlers } = require("./app");
 
 const httpServer = createServer(app);
 
+const allowedOrigins = [
+    "http://localhost:5173",
+    process.env.FRONTEND_URL
+].filter(Boolean);
+
 const io = new Server(httpServer, {
     cors: {
-        origin: "http://localhost:5173",
+        origin: allowedOrigins,
         methods: ["GET", "POST"]
     }
 });
 
 registerSocketHandlers(io);
 
-httpServer.listen(8080, () => console.log("Server running on port 8080 with Websockets!"));
+const PORT = process.env.PORT || 8080;
+
+httpServer.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT} with Websockets!`));

@@ -8,8 +8,9 @@ import annyang from "annyang";
 import Login from "./Login";
 import type { UI } from "../game/scenes/UI";
 import Lobby from "./Lobby";
+import API_URL from "../config.ts";
 
-const socket = io("http://localhost:8080");
+const socket = io(API_URL);
 
 function GamePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);

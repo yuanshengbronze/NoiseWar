@@ -1,6 +1,8 @@
 import { EventBus } from '../EventBus';
 import { Scene} from 'phaser';
 import { Direction, GridEngine } from 'grid-engine';
+import { io, Socket } from 'socket.io-client';
+import API_URL from "../../config.ts";
 
 export class Game extends Scene
 {
@@ -13,6 +15,9 @@ export class Game extends Scene
     direction: integer = 0;
     playerName!: Phaser.GameObjects.BitmapText;
     user!: string;
+    opponent!: string;
+    socket!: Socket;
+    roomCode!: number;
 
     constructor ()
     {
@@ -22,7 +27,6 @@ export class Game extends Scene
     preload() {
         this.load.setPath('assets');
         this.load.spritesheet('foxy', './foxy.png', { frameWidth: 33, frameHeight: 32 });
-        //this.load.spritesheet('fluffy', './fluffy.png', { frameWidth: 16, frameHeight: 20 });
         this.load.image("tiles", "cloud_tileset.png"); 
         this.load.tilemapTiledJSON("tilemap", "maze.json");
         this.load.bitmapFont('pixelfont', 'fonts/' + 'square_6x6' + '.png', 'fonts/' + 'square_6x6' + '.xml');
@@ -73,6 +77,32 @@ export class Game extends Scene
         //Player Text
         this.playerName = this.add.bitmapText(this.player.x, this.player.y, 'pixelfont', this.user);
         EventBus.emit('current-scene-ready', this);
+
+        //Socket
+        this.socket = io(API_URL);   
+        
+        this.socket.on("game-started", (data) => {
+            console.log("Game started on room: ", data.roomCode);
+            this.roomCode = data.roomCode;
+
+            if (this.user === data.host) {
+                this.opponent = data.guest;
+            } else {
+                this.opponent = data.host;
+            }
+
+            console.log(`You are racing against ${this.opponent}!`);
+        });
+
+        this.socket.on("receive-sabotage", () => {
+            console.log(`Received sabotage`);
+            this.receiveSabotage();
+        });
+
+        this.socket.on("game-over", (data) => {
+            console.log(`Game over! The winner is ${data.winner}`);
+            this.changeScene();
+        });
     }
 
     update() {
@@ -141,6 +171,10 @@ export class Game extends Scene
         if (properties.finish) {
             this.scene.stop('UI');
             this.scene.start('GameClear');
+            this.socket.emit("player-finished", {
+                roomCode: this.roomCode,
+                username: this.user
+            })
         }
     }
 
@@ -148,14 +182,20 @@ export class Game extends Scene
         this.direction = direction;
     }
 
-    changeScene ()
+    changeScene()
     {
         this.scene.stop('UI');
         this.scene.start('GameOver');
     }
 
     sabotage() {
-        this.scene.pause()
+        this.socket.emit("send-sabotage", {
+            roomCode: this.roomCode
+        })
+    }
+
+    receiveSabotage() {
+        this.scene.pause();
     }
 
     createPlayerAnimation(name: string, textureName: string, startFrame: number, endFrame: number) {
