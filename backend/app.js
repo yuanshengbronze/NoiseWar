@@ -33,9 +33,11 @@ app.post("/api/event/:eventId/login", async (req, res) => {
 });
 
 const registerSocketHandlers = (io) => {
+    //connect
     io.on("connection", (socket) => {
         console.log(`A user is connected: ${socket.id}`);
-
+        
+        //create-room
         socket.on("create-room", async (data = {}, callback) => {
             const respond = createSocketResponse(callback);
 
@@ -70,6 +72,7 @@ const registerSocketHandlers = (io) => {
             }
         });
 
+        //join-room
         socket.on("join-room", async (data = {}, callback) => {
             const respond = createSocketResponse(callback);
 
@@ -101,9 +104,11 @@ const registerSocketHandlers = (io) => {
                 socket.join(roomCode);
                 socket.data.activeRoom = roomCode;
 
+                //game-started
                 io.to(roomCode).emit("game-started", {
                     host: roomData.hostUsername,
-                    guest: username
+                    guest: username,
+                    roomCode: roomCode
                 });
 
                 respond({ success: true, roomCode: roomCode });
@@ -114,13 +119,13 @@ const registerSocketHandlers = (io) => {
         });
 
         socket.on("send-sabotage", (data = {}) => {
-            const { roomCode, type } = data;
+            const { roomCode } = data;
 
-            if (!roomCode || !type) {
+            if (!roomCode) {
                 return;
             }
 
-            socket.to(roomCode).emit("receive-sabotage", { type });
+            socket.to(roomCode).emit("receive-sabotage");
         });
 
         socket.on("player-finished", async (data = {}) => {
