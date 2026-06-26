@@ -17,7 +17,7 @@ export class Game extends Scene
     user!: string;
     opponent!: string;
     socket!: Socket;
-    roomCode!: number;
+    roomCode!: string;
 
     constructor ()
     {
@@ -35,6 +35,7 @@ export class Game extends Scene
     create ()
     {
         this.user = this.registry.get("user");
+        this.roomCode = this.registry.get("roomCode");
 
         //Player
         this.player = this.add.sprite(0, 0, 'foxy').setScale(0.65);
@@ -94,9 +95,9 @@ export class Game extends Scene
             console.log(`You are racing against ${this.opponent}!`);
         });
 
-        this.socket.on("receive-sabotage", () => {
+        this.socket.on("receive-sabotage", (data = {}) => {
             console.log(`Received sabotage`);
-            this.receiveSabotage();
+            this.receiveSabotage(data.word);
         });
 
         this.socket.on("game-over", (data) => {
@@ -189,12 +190,21 @@ export class Game extends Scene
     }
 
     sabotage() {
+        const sabotageWord = this.registry.get("sabotageWord") || "";
+
         this.socket.emit("send-sabotage", {
-            roomCode: this.roomCode
+            roomCode: this.roomCode,
+            type: "pause",
+            word: sabotageWord
         })
     }
 
-    receiveSabotage() {
+    receiveSabotage(word: string) {
+        const uiScene = this.scene.get("UI") as Phaser.Scene & {
+            setSabotageWord?: (word: string) => void;
+        };
+
+        uiScene.setSabotageWord?.(word);
         this.scene.pause();
     }
 

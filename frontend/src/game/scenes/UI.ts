@@ -8,6 +8,7 @@ export class UI extends Scene
     timer!: Phaser.Time.TimerEvent;
     timeText!: Phaser.GameObjects.Text;
     sabotageText!: Phaser.GameObjects.Text;
+    sabotageWord!: string;
     gameScene!: Game;
     cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 
@@ -40,8 +41,12 @@ export class UI extends Scene
         });
 
         this.cursors = this.input.keyboard!.createCursorKeys();
+        this.sabotageWord = this.registry.get("sabotageWord") || "";
+        const sabotagePrompt = this.sabotageWord
+            ? `SAY THE WORD '${this.sabotageWord.toUpperCase()}'`
+            : "SAY THE WORD ...";
 
-        this.sabotageText = this.add.text(170, 300, "YOU ARE SABOTAGED! \nTO PROCEED, SPELL 'ABSOLUTELY'", {
+        this.sabotageText = this.add.text(170, 300, `YOU ARE SABOTAGED! \n${sabotagePrompt}`, {
             fontFamily: 'Arial', 
             fontSize: 30, 
             color: '#ff0000',
@@ -52,6 +57,20 @@ export class UI extends Scene
 
         this.scene.launch('Game');
         EventBus.emit('current-scene-ready', this);
+    }
+
+    setSabotageWord(word: string) {
+        this.sabotageWord = word.trim().toLowerCase();
+
+        const sabotagePrompt = this.sabotageWord
+            ? `SAY THE WORD '${this.sabotageWord.toUpperCase()}'`
+            : "SAY THE WORD ...";
+
+        this.sabotageText.setText(`YOU ARE SABOTAGED! \n${sabotagePrompt}`);
+    }
+
+    matchesSabotageWord(term: string) {
+        return Boolean(this.sabotageWord && term.trim().toLowerCase() === this.sabotageWord);
     }
 
     update() {

@@ -4,6 +4,8 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const client = require("./redisClient");
+const { HASH_PREFIX, hashPassword, normalizeCredentials, verifyPassword } = require("./auth");
+const { normalizeSabotageWords } = require("./sabotageWords");
  
 const app = express();
 app.use(express.json());
@@ -23,46 +25,64 @@ const getSabotageWordsKey = (username) => {
     return `user:${encodeURIComponent(username)}:sabotageWords`;
 };
 
-const normalizeSabotageWords = (words) => {
-    if (!Array.isArray(words)) {
-        return [];
-    }
-
-    const seenWords = new Set();
-
-    return words
-        .filter((word) => typeof word === "string")
-        .map((word) => word.trim().toLowerCase())
-        .filter((word) => {
-            if (!word || seenWords.has(word)) {
-                return false;
-            }
-
-            seenWords.add(word);
-            return true;
-        });
-};
-
 app.post("/api/event/:eventId/login", async (req, res) => {
     const { eventId } = req.params;
     const { username, password } = req.body;
     const roomKey = `room:${eventId}:users`;
 
-    // Get current password
-    const existingPassword = await client.hGet(roomKey, username);
+    try {
+        const credentials = normalizeCredentials(username, password);
 
-    if (existingPassword == null) {
-        // If username doesn't exist, update the new data.
-        await client.hSet(roomKey, username, password);
-        res.json({ success: true });
-    } else {
-        if (existingPassword == password) {
-            // Correct password!
-            res.json({ success: true });
-        } else {
-            // Wrong password!
-            res.status(401).json({ error: "Username is taken / Wrong password! " });
+        if (!credentials) {
+            return res.status(400).json({ error: "Username and password are required." });
         }
+
+        const existingPassword = await client.hGet(roomKey, credentials.username);
+
+        if (existingPassword == null) {
+            return res.status(401).json({ error: "Invalid username or password." });
+        }
+
+        const isAuthenticated = await verifyPassword(credentials.password, existingPassword);
+
+        if (!isAuthenticated) {
+            return res.status(401).json({ error: "Invalid username or password." });
+        }
+
+        if (!existingPassword.startsWith(`${HASH_PREFIX}$`)) {
+            await client.hSet(roomKey, credentials.username, await hashPassword(credentials.password));
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Failed to authenticate user: ", error);
+        res.status(500).json({ error: "Failed to authenticate user." });
+    }
+});
+
+app.post("/api/event/:eventId/signup", async (req, res) => {
+    const { eventId } = req.params;
+    const { username, password } = req.body;
+    const roomKey = `room:${eventId}:users`;
+
+    try {
+        const credentials = normalizeCredentials(username, password);
+
+        if (!credentials) {
+            return res.status(400).json({ error: "Username and password are required." });
+        }
+
+        const existingPassword = await client.hGet(roomKey, credentials.username);
+
+        if (existingPassword != null) {
+            return res.status(409).json({ error: "Username is already taken." });
+        }
+
+        await client.hSet(roomKey, credentials.username, await hashPassword(credentials.password));
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Failed to create user: ", error);
+        res.status(500).json({ error: "Failed to create user." });
     }
 });
 
@@ -180,13 +200,13 @@ const registerSocketHandlers = (io) => {
         });
 
         socket.on("send-sabotage", (data = {}) => {
-            const { roomCode, type } = data;
+            const { roomCode, type = "pause", word = "" } = data;
 
-            if (!roomCode || !type) {
+            if (!roomCode) {
                 return;
             }
 
-            socket.to(roomCode).emit("receive-sabotage", { type });
+            socket.to(roomCode).emit("receive-sabotage", { type, word });
         });
 
         socket.on("player-finished", async (data = {}) => {

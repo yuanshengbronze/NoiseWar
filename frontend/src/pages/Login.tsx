@@ -1,5 +1,5 @@
 import { useState } from "react";
-import API_URL from "../config";
+import { type AuthMode, getAuthHeadingAction, submitAuthRequest } from "../authApi";
 interface LoginProps {
   loginSuccess: (username: string) => void;
 }
@@ -16,20 +16,25 @@ function Login({ loginSuccess }: LoginProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+
+  const isLogin = authMode === "login";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const response = await fetch(`${API_URL}/api/event/lobby/login`, {
-      method: "POST",
-      headers: { "Content-type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
+    const result = await submitAuthRequest(authMode, username, password);
 
-    const data = await response.json();
-    response.ok
-      ? loginSuccess(username)
-      : setErrorMessage(data.error || "Something went wrong");
+    if (result.ok) {
+      loginSuccess(result.username);
+    } else {
+      setErrorMessage(result.error);
+    }
+  };
+
+  const switchMode = (mode: AuthMode) => {
+    setAuthMode(mode);
+    setErrorMessage("");
   };
 
   return (
@@ -38,7 +43,7 @@ function Login({ loginSuccess }: LoginProps) {
         src="assets/logo.png"
         style={{ width: "450px", height: "300px" }}
       ></img>
-      <h3> Welcome to Noise War! Please sign up/login. </h3>
+      <h3> Welcome to Noise War! Please {getAuthHeadingAction(authMode)}. </h3>
       <div
         className="login-form"
         style={{
@@ -65,8 +70,24 @@ function Login({ loginSuccess }: LoginProps) {
           />
           <br />
 
-          <button type="submit">Submit</button>
+          <button type="submit">{isLogin ? "Login" : "Sign Up"}</button>
         </form>
+        <button
+          type="button"
+          onClick={() => switchMode(isLogin ? "signup" : "login")}
+          style={{
+            alignSelf: "center",
+            border: "none",
+            background: "transparent",
+            padding: "2px 4px",
+            color: "inherit",
+            textDecoration: "underline",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+          {isLogin ? "Create an account" : "Already have an account? Login"}
+        </button>
         {errorMessage && (
           <p style={{ color: "red", justifyContent: "center" }}>
             {errorMessage}

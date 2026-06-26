@@ -50,7 +50,7 @@ function GamePage() {
     losses: 3,
   };
   const phaserRef = useRef<IRefPhaserGame | null>(null);
-  const activeSabotageWord = sabotageWords[0] || "absolutely";
+  const activeSabotageWord = sabotageWords[0] || "";
   useEffect(() => {
     if (!socket.connected) {
       socket.connect();
@@ -247,7 +247,7 @@ function GamePage() {
         }
       };
 
-      const commands = {
+      const commands: Record<string, (term?: string) => void> = {
         stop: () => {
           control(0);
         },
@@ -264,11 +264,19 @@ function GamePage() {
           control(4);
         },
         sabotage: sabotage,
-        [activeSabotageWord]: stopSabotage,
-        "*term": (term: string) => {
+        "*term": (term = "") => {
           console.log(term);
+          const UIScene = phaserRef.current?.scene?.scene.get("UI") as UI;
+
+          if (UIScene?.matchesSabotageWord(term)) {
+            UIScene.stopSabotage();
+          }
         },
       };
+
+      if (activeSabotageWord) {
+        commands[activeSabotageWord] = stopSabotage;
+      }
 
       annyang.addCommands(commands);
       annyang.start();
@@ -374,6 +382,7 @@ function GamePage() {
           <PhaserGame
             ref={phaserRef}
             user={user}
+            roomCode={roomCode}
             sabotageWord={activeSabotageWord}
           />
           <div>
