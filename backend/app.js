@@ -1,5 +1,5 @@
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, ".env") });
+require("dotenv");
 
 const express = require("express");
 const cors = require("cors");
@@ -8,6 +8,30 @@ const client = require("./redisClient");
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+const getSabotageWordsKey = (username) => {
+    return `user:${encodeURIComponent(username)}:sabotageWords`;
+};
+
+const normalizeSabotageWords = (words) => {
+    if (!Array.isArray(words)) {
+        return [];
+    }
+
+    const seenWords = new Set();
+
+    return words
+        .filter((word) => typeof word === "string")
+        .map((word) => word.trim().toLowerCase())
+        .filter((word) => {
+            if (!word || seenWords.has(word)) {
+                return false;
+            }
+
+            seenWords.add(word);
+            return true;
+        });
+};
 
 app.post("/api/event/:eventId/login", async (req, res) => {
     const { eventId } = req.params;
@@ -32,12 +56,42 @@ app.post("/api/event/:eventId/login", async (req, res) => {
     }
 });
 
+app.get("/api/user/:username/profile", async (req, res) => {
+    try {
+        const { username } = req.params;
+        const savedWords = await client.get(getSabotageWordsKey(username));
+
+        res.json({
+            username,
+            sabotageWords: savedWords ? JSON.parse(savedWords) : []
+        });
+    } catch (error) {
+        console.error("Failed to fetch user profile: ", error);
+        res.status(500).json({ error: "Failed to fetch user profile." });
+    }
+});
+
+app.put("/api/user/:username/sabotage-words", async (req, res) => {
+    try {
+        const { username } = req.params;
+        const sabotageWords = normalizeSabotageWords(req.body.sabotageWords);
+
+        await client.set(
+            getSabotageWordsKey(username),
+            JSON.stringify(sabotageWords)
+        );
+
+        res.json({ success: true, sabotageWords });
+    } catch (error) {
+        console.error("Failed to save sabotage words: ", error);
+        res.status(500).json({ error: "Failed to save sabotage words." });
+    }
+});
+
 const registerSocketHandlers = (io) => {
-    //connect
     io.on("connection", (socket) => {
         console.log(`A user is connected: ${socket.id}`);
-        
-        //create-room
+
         socket.on("create-room", async (data = {}, callback) => {
             const respond = createSocketResponse(callback);
 
@@ -72,7 +126,6 @@ const registerSocketHandlers = (io) => {
             }
         });
 
-        //join-room
         socket.on("join-room", async (data = {}, callback) => {
             const respond = createSocketResponse(callback);
 
@@ -104,11 +157,9 @@ const registerSocketHandlers = (io) => {
                 socket.join(roomCode);
                 socket.data.activeRoom = roomCode;
 
-                //game-started
                 io.to(roomCode).emit("game-started", {
                     host: roomData.hostUsername,
-                    guest: username,
-                    roomCode: roomCode
+                    guest: username
                 });
 
                 respond({ success: true, roomCode: roomCode });
@@ -119,13 +170,13 @@ const registerSocketHandlers = (io) => {
         });
 
         socket.on("send-sabotage", (data = {}) => {
-            const { roomCode } = data;
+            const { roomCode, type } = data;
 
-            if (!roomCode) {
+            if (!roomCode || !type) {
                 return;
             }
 
-            socket.to(roomCode).emit("receive-sabotage");
+            socket.to(roomCode).emit("receive-sabotage", { type });
         });
 
         socket.on("player-finished", async (data = {}) => {

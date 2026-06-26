@@ -10,10 +10,11 @@ export interface IRefPhaserGame {
 interface IProps {
   currentActiveScene?: (scene_instance: Phaser.Scene) => void;
   user: string | null;
+  sabotageWord: string;
 }
 
 export const PhaserGame = forwardRef<IRefPhaserGame, IProps>(
-  function PhaserGame({ currentActiveScene, user }, ref) {
+  function PhaserGame({ currentActiveScene, user, sabotageWord }, ref) {
     const game = useRef<Phaser.Game | null>(null!);
 
     useLayoutEffect(() => {
@@ -59,6 +60,12 @@ export const PhaserGame = forwardRef<IRefPhaserGame, IProps>(
         game.current.registry.set("user", user);
       }
     }, [user]);
+
+    useEffect(() => {
+      if (game.current) {
+        game.current.registry.set("sabotageWord", sabotageWord);
+      }
+    }, [sabotageWord]);
 
     return <div id="game-container"></div>;
   },
