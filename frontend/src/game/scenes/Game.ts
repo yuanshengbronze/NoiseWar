@@ -1,8 +1,8 @@
 import { EventBus } from '../EventBus';
 import { Scene} from 'phaser';
 import { Direction, GridEngine } from 'grid-engine';
-import { io, Socket } from 'socket.io-client';
-import API_URL from "../../config.ts";
+import {Socket} from 'socket.io-client';
+import {socket} from '../../socket.ts';
 
 export class Game extends Scene
 {
@@ -79,7 +79,7 @@ export class Game extends Scene
         EventBus.emit('current-scene-ready', this);
 
         //Socket
-        this.socket = io(API_URL);   
+        this.socket = socket;  
         
         this.socket.on("game-started", (data) => {
             console.log("Game started on room: ", data.roomCode);

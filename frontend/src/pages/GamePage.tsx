@@ -3,7 +3,6 @@ import { type IRefPhaserGame, PhaserGame } from "../PhaserGame";
 import { MainMenu } from "../game/scenes/MainMenu";
 import { EventBus } from "../game/EventBus";
 import { Game } from "../game/scenes/Game";
-import { io } from "socket.io-client";
 import annyang from "annyang";
 import Login from "./Login";
 import type { UI } from "../game/scenes/UI";
@@ -11,8 +10,7 @@ import Lobby from "./Lobby";
 import Navbar from "../components/Navbar";
 import AccountPage from "./AccountPage";
 import API_URL from "../config";
-
-const socket = io(API_URL);
+import { socket } from "../socket";
 
 interface CreateRoomResponse {
   success: boolean;
@@ -53,6 +51,15 @@ function GamePage() {
   };
   const phaserRef = useRef<IRefPhaserGame | null>(null);
   const activeSabotageWord = sabotageWords[0] || "absolutely";
+  useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const handleLogin = (username: string) => {
     setIsLoggedIn(true);

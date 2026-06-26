@@ -1,5 +1,5 @@
 const path = require("path");
-require("dotenv");
+require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
@@ -7,7 +7,17 @@ const client = require("./redisClient");
  
 const app = express();
 app.use(express.json());
-app.use(cors());
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://noise-war-v84o.vercel.app",
+    process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+}));
 
 const getSabotageWordsKey = (username) => {
     return `user:${encodeURIComponent(username)}:sabotageWords`;

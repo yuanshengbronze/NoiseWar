@@ -9,6 +9,7 @@ const httpServer = createServer(app);
 
 const allowedOrigins = [
     "http://localhost:5173",
+    "https://noise-war-v84o.vercel.app",
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
