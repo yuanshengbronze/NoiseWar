@@ -1,7 +1,6 @@
 import { EventBus } from '../EventBus';
 import { Scene} from 'phaser';
 import { Direction, GridEngine } from 'grid-engine';
-import {Socket} from 'socket.io-client';
 import {socket} from '../../socket.ts';
 
 export class Game extends Scene
@@ -15,7 +14,6 @@ export class Game extends Scene
     direction: integer = 0;
     playerName!: Phaser.GameObjects.BitmapText;
     user!: string;
-    socket!: Socket;
     roomCode!: string;
 
     constructor ()
@@ -79,16 +77,20 @@ export class Game extends Scene
         EventBus.emit('current-scene-ready', this);
 
         //Socket
-        this.socket = socket;  
-
-        this.socket.on("receive-sabotage", (data = {}) => {
+        socket.on("receive-sabotage", (data = {}) => {
             console.log(`Received sabotage`);
             this.receiveSabotage(data.word);
         });
 
-        this.socket.on("game-over", (data) => {
-            console.log(`Game over! The winner is ${data.winner}`);
+        socket.on("game-over", () => {
+            console.log(`Game Over!`);
             this.changeScene();
+        });
+
+        socket.on("game-clear", (data) => {
+            console.log(`Game Clear! The winner is ${data.winner}`);
+            this.scene.stop('UI');
+            this.scene.start('GameClear');
         });
     }
 
@@ -156,7 +158,7 @@ export class Game extends Scene
         //CLEAR CONDITION
         const properties = this.tilemap.getTileAt(currPosition.x, currPosition.y)?.properties
         if (properties.finish) {
-            this.socket.emit("player-finished", {
+            socket.emit("player-finished", {
                 roomCode: this.roomCode,
                 username: this.user
             })
@@ -176,7 +178,7 @@ export class Game extends Scene
     sabotage() {
         const sabotageWord = this.registry.get("sabotageWord") || "";
 
-        this.socket.emit("send-sabotage", {
+        socket.emit("send-sabotage", {
             roomCode: this.roomCode,
             type: "pause",
             word: sabotageWord

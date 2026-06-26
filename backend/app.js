@@ -246,7 +246,7 @@ const registerSocketHandlers = (io) => {
             socket.to(roomCode).emit("receive-sabotage", { type, word });
         });
 
-        socket.on("player-finished", async (data = {}) => {
+        socket.on("time-out", async (data = {}) => {
             try {
                 const { roomCode, username } = data;
 
@@ -259,6 +259,24 @@ const registerSocketHandlers = (io) => {
                 await client.hSet(redisRoomKey, { phase: "finished" });
 
                 io.to(roomCode).emit("game-over", { winner: username });
+            } catch (error) {
+                console.error("Redis finish error: ", error);
+            }
+        });
+
+        socket.on("player-finished", async (data = {}) => {
+            try {
+                const { roomCode, username } = data;
+
+                if (!roomCode || !username) {
+                    return;
+                }
+
+                const redisRoomKey = `game:room:${roomCode}`;
+
+                await client.hSet(redisRoomKey, { phase: "finished" });
+
+                io.to(roomCode).emit("game-clear", { winner: username });
             } catch (error) {
                 console.error("Redis finish error: ", error);
             }

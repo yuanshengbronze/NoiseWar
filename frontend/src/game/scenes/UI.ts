@@ -1,6 +1,8 @@
 import { EventBus } from '../EventBus';
 import { Scene } from 'phaser';
 import {Game} from './Game';
+import {socket} from "../../socket";
+
 
 export class UI extends Scene
 {
@@ -11,7 +13,6 @@ export class UI extends Scene
     sabotageWord!: string;
     gameScene!: Game;
     cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-
 
     constructor ()
     {
@@ -93,10 +94,6 @@ export class UI extends Scene
             } else {
                 this.sabotageText.setVisible(false);
             }
-
-            if (this.cursors.space.isDown) {
-                this.gameScene.scene.resume();
-            }
         }
     }
     
@@ -105,8 +102,9 @@ export class UI extends Scene
     }
 
     timeOut() {
-        this.scene.stop('UI');
-        this.scene.stop('Game');
-        this.scene.start('GameOver');
+        socket.emit("time-out", {
+            roomCode: this.registry.get("roomCode"),
+            username: this.gameScene.user
+        })
     }
 }
