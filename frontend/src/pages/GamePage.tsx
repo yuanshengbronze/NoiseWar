@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import { type IRefPhaserGame, PhaserGame } from "../PhaserGame";
-import { MainMenu } from "../game/scenes/MainMenu";
 import { EventBus } from "../game/EventBus";
 import { Game } from "../game/scenes/Game";
 import annyang from "annyang";
@@ -49,6 +48,7 @@ function GamePage() {
     wins: 5,
     losses: 3,
   };
+
   const phaserRef = useRef<IRefPhaserGame | null>(null);
   const activeSabotageWord = sabotageWords[0] || "";
   useEffect(() => {
@@ -150,20 +150,21 @@ function GamePage() {
     }
   };
 
-  const changeScene = () => {
-    if (phaserRef.current) {
-      const scene = phaserRef.current.scene as MainMenu;
-
-      if (scene) {
-        scene.changeScene();
-      }
-    }
+  const startGame = () => {
+    socket.emit(
+      "start-game",
+      { roomCode },
+      (response: { success: boolean; error?: string }) => {
+        if (!response.success) {
+          alert(response.error || "Could not start game.");
+        }
+      },
+    );
   };
 
   useEffect(() => {
     EventBus.on("GamePage", () => {
       startMainMenu();
-
       setCurrentPhase("lobby");
       setRoomCode("");
       setIsCreatedRoomReady(false);
@@ -185,10 +186,10 @@ function GamePage() {
       setIsCreatedRoomReady(true);
     };
 
-    socket.on("game-started", markCreatedRoomReady);
+    socket.on("game-ready", markCreatedRoomReady);
 
     return () => {
-      socket.off("game-started", markCreatedRoomReady);
+      socket.off("game-ready", markCreatedRoomReady);
     };
   }, []);
 
@@ -386,7 +387,7 @@ function GamePage() {
             sabotageWord={activeSabotageWord}
           />
           <div>
-            <button className="button" onClick={changeScene}>
+            <button className="button" onClick={startGame}>
               Next
             </button>
           </div>

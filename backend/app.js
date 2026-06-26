@@ -187,7 +187,7 @@ const registerSocketHandlers = (io) => {
                 socket.join(roomCode);
                 socket.data.activeRoom = roomCode;
 
-                io.to(roomCode).emit("game-started", {
+                io.to(roomCode).emit("game-ready", {
                     host: roomData.hostUsername,
                     guest: username
                 });
@@ -196,6 +196,43 @@ const registerSocketHandlers = (io) => {
             } catch (error) {
                 console.error("Redis join error: ", error);
                 respond({ success: false, error: "Failed to join room." });
+            }
+        });
+
+        socket.on("start-game", async (data = {}, callback) => {
+            const respond = createSocketResponse(callback);
+
+            try {
+                const roomCode = data.roomCode?.toString().toUpperCase();
+                if (!roomCode) {
+                    return respond({ success: false, error: "Room code is required." });
+                }
+
+                const redisRoomKey = `game:room:${roomCode}`;
+                const roomData = await client.hGetAll(redisRoomKey);
+                if (!roomData.host || !roomData.guest) {
+                    return respond({
+                        success: false,
+                        error: "Room is not yet full!"
+                    });
+                }
+
+                await client.hSet(redisRoomKey, {
+                    phase: "playing"
+                });
+
+                io.to(roomCode).emit("game-started", {
+                    host: roomData.hostUsername,
+                    guest: roomData.guestUsername,
+                    roomCode
+                });
+                respond({ success: true });
+            } catch (error) {
+                console.error("start-game error:", error);
+                respond({
+                    success: false,
+                    error: "Failed to start game."
+                });
             }
         });
 

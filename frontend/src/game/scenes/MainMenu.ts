@@ -1,6 +1,7 @@
 import { GameObjects, Scene } from 'phaser';
-
 import { EventBus } from '../EventBus';
+import {Socket} from 'socket.io-client';
+import {socket} from '../../socket.ts';
 
 export class MainMenu extends Scene
 {
@@ -8,6 +9,7 @@ export class MainMenu extends Scene
     title!: GameObjects.Text;
     subtitle!: GameObjects.Text;
     logo !: GameObjects.Image;
+    socket !: Socket
 
     constructor ()
     {
@@ -16,6 +18,13 @@ export class MainMenu extends Scene
 
     create ()
     {
+        this.socket = socket;
+        this.socket.on("game-started", (data) => {
+            console.log("Game started on room: ", data.roomCode);
+            this.registry.set("roomCode", data.roomCode);
+            this.changeScene();
+        });
+
         this.background = this.add.image(400, 300, 'background');
 
         this.logo = this.add.image(400, 300, 'logo').setScale(1.5);

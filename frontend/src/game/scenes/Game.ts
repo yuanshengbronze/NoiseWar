@@ -15,7 +15,6 @@ export class Game extends Scene
     direction: integer = 0;
     playerName!: Phaser.GameObjects.BitmapText;
     user!: string;
-    opponent!: string;
     socket!: Socket;
     roomCode!: string;
 
@@ -81,19 +80,6 @@ export class Game extends Scene
 
         //Socket
         this.socket = socket;  
-        
-        this.socket.on("game-started", (data) => {
-            console.log("Game started on room: ", data.roomCode);
-            this.roomCode = data.roomCode;
-
-            if (this.user === data.host) {
-                this.opponent = data.guest;
-            } else {
-                this.opponent = data.host;
-            }
-
-            console.log(`You are racing against ${this.opponent}!`);
-        });
 
         this.socket.on("receive-sabotage", (data = {}) => {
             console.log(`Received sabotage`);
@@ -170,8 +156,6 @@ export class Game extends Scene
         //CLEAR CONDITION
         const properties = this.tilemap.getTileAt(currPosition.x, currPosition.y)?.properties
         if (properties.finish) {
-            this.scene.stop('UI');
-            this.scene.start('GameClear');
             this.socket.emit("player-finished", {
                 roomCode: this.roomCode,
                 username: this.user
