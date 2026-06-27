@@ -80,8 +80,7 @@ function GamePage() {
     };
   }, []);
 
-  const isNextDisabled =
-    currentSceneKey === "GameOver" || currentSceneKey === "GameClear";
+  const isNextDisabled = !(currentSceneKey === "MainMenu");
 
   const handleCreateRoom = () => {
     socket.emit(
