@@ -1,4 +1,3 @@
-import { EventBus } from '../EventBus';
 import { Scene } from 'phaser';
 import {Game} from './Game';
 import {socket} from "../../socket";
@@ -57,15 +56,14 @@ export class UI extends Scene
         }).setVisible(false);
 
         this.scene.launch('Game');
-        EventBus.emit('current-scene-ready', this);
     }
 
     setSabotageWord(word: string) {
         this.sabotageWord = word.trim().toLowerCase();
 
         const sabotagePrompt = this.sabotageWord
-            ? `SAY THE WORD '${this.sabotageWord.toUpperCase()}'`
-            : "SAY THE WORD ...";
+            ? `SPELL THE WORD '${this.sabotageWord.toUpperCase()}'`
+            : "SPELL THE WORD ...";
 
         this.sabotageText.setText(`YOU ARE SABOTAGED! \n${sabotagePrompt}`);
     }

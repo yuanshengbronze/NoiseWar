@@ -283,8 +283,8 @@ function GamePage() {
         },
         sabotage: sabotage,
         "*term": (term = "") => {
+          console.log(term);
           const UIScene = phaserRef.current?.scene?.scene.get("UI") as UI;
-
           if (UIScene?.matchesSabotageWord(term)) {
             UIScene.stopSabotage();
           }

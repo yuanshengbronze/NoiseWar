@@ -94,6 +94,8 @@ export class Game extends Scene
                 winner: data.winner
             });
         });
+
+        EventBus.emit('current-scene-ready', this);
     }
 
     update() {
@@ -109,6 +111,7 @@ export class Game extends Scene
         } 
 
         //CONTROLS FOR TESTING
+        /*
         if (this.cursors.left.isDown) { 
             this.gridEngine.move("player", Direction.LEFT); 
         } else if (this.cursors.right.isDown) { 
@@ -118,7 +121,11 @@ export class Game extends Scene
         } else if (this.cursors.down.isDown) { 
             this.gridEngine.move("player", Direction.DOWN); 
         } 
-        
+
+        if (this.cursors.shift.isDown) {
+            this.sabotage();
+        }
+        */
         
         if (this.cursors.space.isDown) {
             this.direction = 0;
