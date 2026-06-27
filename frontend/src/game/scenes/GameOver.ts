@@ -28,9 +28,4 @@ export class GameOver extends Scene
         
         EventBus.emit('current-scene-ready', this);
     }
-
-    changeScene ()
-    {
-        EventBus.emit('GamePage');
-    }
 }

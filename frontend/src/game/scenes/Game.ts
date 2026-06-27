@@ -90,8 +90,12 @@ export class Game extends Scene
         socket.on("game-clear", (data) => {
             console.log(`Game Clear! The winner is ${data.winner}`);
             this.scene.stop('UI');
-            this.scene.start('GameClear');
+            this.scene.start('GameClear', {
+                winner: data.winner
+            });
         });
+
+        EventBus.emit('current-scene-ready', this);
     }
 
     update() {
@@ -117,6 +121,10 @@ export class Game extends Scene
         } else if (this.cursors.down.isDown) { 
             this.gridEngine.move("player", Direction.DOWN); 
         } 
+
+        if (this.cursors.shift.isDown) {
+            this.sabotage();
+        }
         */
         
         if (this.cursors.space.isDown) {
