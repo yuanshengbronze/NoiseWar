@@ -41,6 +41,8 @@ function GamePage() {
   const [currentPhase, setCurrentPhase] = useState<
     "lobby" | "account" | "playing"
   >("lobby");
+  const [currentSceneKey, setCurrentSceneKey] = useState<string>("");
+
   const [isCreatedRoomReady, setIsCreatedRoomReady] = useState(false);
   const [sabotageWords, setSabotageWords] = useState<string[]>([]);
   const matchStats = {
@@ -65,6 +67,21 @@ function GamePage() {
     setIsLoggedIn(true);
     setUser(username);
   };
+
+  useEffect(() => {
+    const handleCurrentSceneReady = (scene: Phaser.Scene) => {
+      setCurrentSceneKey(scene.scene.key);
+    };
+
+    EventBus.on("current-scene-ready", handleCurrentSceneReady);
+
+    return () => {
+      EventBus.off("current-scene-ready", handleCurrentSceneReady);
+    };
+  }, []);
+
+  const isNextDisabled =
+    currentSceneKey === "GameOver" || currentSceneKey === "GameClear";
 
   const handleCreateRoom = () => {
     socket.emit(
@@ -266,7 +283,6 @@ function GamePage() {
         },
         sabotage: sabotage,
         "*term": (term = "") => {
-          console.log(term);
           const UIScene = phaserRef.current?.scene?.scene.get("UI") as UI;
 
           if (UIScene?.matchesSabotageWord(term)) {
@@ -387,7 +403,11 @@ function GamePage() {
             sabotageWord={activeSabotageWord}
           />
           <div>
-            <button className="button" onClick={startGame}>
+            <button
+              className="button"
+              onClick={startGame}
+              disabled={isNextDisabled}
+            >
               Next
             </button>
           </div>

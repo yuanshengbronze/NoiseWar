@@ -5,14 +5,15 @@ export class GameClear extends Scene
 {
     camera!: Phaser.Cameras.Scene2D.Camera;
     background!: Phaser.GameObjects.Image;
-    gameOverText!: Phaser.GameObjects.Text;
+    gameClearText!: Phaser.GameObjects.Text;
+    winnerText!: Phaser.GameObjects.Text;
 
     constructor ()
     {
         super('GameClear');
     }
 
-    create ()
+    create (data: {winner: string})
     {
         this.camera = this.cameras.main
         this.camera.setBackgroundColor(0x0000ff);
@@ -20,7 +21,13 @@ export class GameClear extends Scene
         this.background = this.add.image(400, 300, 'background');
         this.background.setAlpha(0.5);
 
-        this.gameOverText = this.add.text(400, 300, 'Game Clear!', {
+        this.gameClearText = this.add.text(400, 300, 'Game Clear!', {
+            fontFamily: 'Arial Black', fontSize: 64, color: '#ffffff',
+            stroke: '#000000', strokeThickness: 8,
+            align: 'center'
+        }).setOrigin(0.5).setDepth(100);
+
+        this.winnerText = this.add.text(400, 400, `Winner: ${data.winner}`, {
             fontFamily: 'Arial Black', fontSize: 64, color: '#ffffff',
             stroke: '#000000', strokeThickness: 8,
             align: 'center'

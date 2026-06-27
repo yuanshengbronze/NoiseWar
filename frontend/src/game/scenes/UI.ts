@@ -71,7 +71,20 @@ export class UI extends Scene
     }
 
     matchesSabotageWord(term: string) {
-        return Boolean(this.sabotageWord && term.trim().toLowerCase() === this.sabotageWord);
+        const letters = term
+            .trim()
+            .toLowerCase()
+            .split(/\s+/);
+
+        const targetWord = this.sabotageWord?.trim().toLowerCase();
+
+        if (!targetWord) {
+            return false;
+        }
+
+        const spelledWord = letters.join("");
+
+        return letters.length === targetWord.length && spelledWord === targetWord;
     }
 
     update() {
