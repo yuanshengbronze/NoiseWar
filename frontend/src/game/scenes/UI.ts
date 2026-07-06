@@ -6,12 +6,13 @@ import {socket} from "../../socket";
 export class UI extends Scene
 {
     camera!: Phaser.Cameras.Scene2D.Camera;
-    timer!: Phaser.Time.TimerEvent;
     timeText!: Phaser.GameObjects.Text;
     sabotageText!: Phaser.GameObjects.Text;
     sabotageWord!: string;
     gameScene!: Game;
     cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+    endsAt!: number;
+    timeOffset!: number;
 
     constructor ()
     {
@@ -22,14 +23,10 @@ export class UI extends Scene
     {
         this.camera = this.cameras.main;
         this.gameScene = this.scene.get('Game') as Game;
+        const startedAt = this.registry.get("startedAt");
+        this.endsAt = this.registry.get("endsAt");
 
-        //TIMER
-        this.timer = this.time.addEvent({
-            delay: 1 * 60 * 1000, // ms
-            //args: [],
-            callback: this.timeOut,
-            callbackScope: this
-        });
+        this.timeOffset = startedAt - Date.now();
 
         this.timeText = this.add.text(0, 0, "0:00", {
             fontFamily: 'Arial', 
@@ -87,17 +84,19 @@ export class UI extends Scene
 
     update() {
         //COUNTDOWN
-        if (this.timer) {
-            const remainingSeconds = this.timer.getRemainingSeconds() + 1;
-            const min = Math.floor(remainingSeconds / 60);
-            const sec = Math.floor(remainingSeconds % 60);
+        const estimatedServerNow = Date.now() + this.timeOffset;
+        const remainingMs = Math.max(0, this.endsAt - estimatedServerNow);
 
-            const stringMin = min < 10 ? `0${min}` : `${min}`;
-            const stringSec = sec < 10 ? `0${sec}` : `${sec}`;
+        const totalSeconds = Math.ceil(remainingMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
 
-            this.timeText.setText(`${stringMin}:${stringSec}`);
+        this.timeText.setText(`${minutes}:${seconds.toString().padStart(2, "0")}`);
+
+        if (remainingMs <= 0) {
+            this.timeText.setText("0:00");
         }
-
+        
         if (this.gameScene) {
             //SABOTAGE
             if (this.gameScene.scene.isPaused()) {

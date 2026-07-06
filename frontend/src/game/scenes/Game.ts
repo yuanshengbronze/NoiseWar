@@ -33,7 +33,7 @@ export class Game extends Scene
     {
         this.user = this.registry.get("user");
         this.roomCode = this.registry.get("roomCode");
-
+        
         //Player
         this.player = this.add.sprite(0, 0, 'foxy').setScale(0.65);
         this.createPlayerAnimation('idle', 'foxy', 0, 3);
@@ -111,7 +111,7 @@ export class Game extends Scene
         } 
 
         //CONTROLS FOR TESTING
-        /*
+        
         if (this.cursors.left.isDown) { 
             this.gridEngine.move("player", Direction.LEFT); 
         } else if (this.cursors.right.isDown) { 
@@ -125,7 +125,7 @@ export class Game extends Scene
         if (this.cursors.shift.isDown) {
             this.sabotage();
         }
-        */
+        
         
         if (this.cursors.space.isDown) {
             this.direction = 0;

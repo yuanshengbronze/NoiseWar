@@ -80,8 +80,6 @@ function GamePage() {
     };
   }, []);
 
-  const isNextDisabled = !(currentSceneKey === "MainMenu");
-
   const handleCreateRoom = () => {
     socket.emit(
       "create-room",
@@ -98,18 +96,19 @@ function GamePage() {
     );
   };
 
-  const startMatchRoom = (code: string) => {
-    setRoomCode(code);
-    setCurrentPhase("playing");
-  };
-
-  const startCreatedMatchRoom = (code: string) => {
-    if (!isCreatedRoomReady) {
-      alert("Waiting for one more player to join this room.");
-      return;
-    }
-
-    startMatchRoom(code);
+  const enterCreatedMatchRoom = () => {
+    socket.emit(
+      "join-room",
+      { username: user, roomCode: roomCode },
+      (response: JoinRoomResponse) => {
+        if (response.success) {
+          setCurrentPhase("playing");
+          setRoomCode(roomCode);
+        } else {
+          alert("Could not enter room: " + response.error);
+        }
+      },
+    );
   };
 
   const handleEnterRoom = (code: string) => {
@@ -118,7 +117,8 @@ function GamePage() {
       { username: user, roomCode: code },
       (response: JoinRoomResponse) => {
         if (response.success) {
-          startMatchRoom(response.roomCode ?? code);
+          setCurrentPhase("playing");
+          setRoomCode(code);
         } else {
           alert("Could not enter room: " + response.error);
         }
@@ -164,18 +164,6 @@ function GamePage() {
     } else if (phaserRef.current?.game) {
       phaserRef.current.game.scene.start("MainMenu");
     }
-  };
-
-  const startGame = () => {
-    socket.emit(
-      "start-game",
-      { roomCode },
-      (response: { success: boolean; error?: string }) => {
-        if (!response.success) {
-          alert(response.error || "Could not start game.");
-        }
-      },
-    );
   };
 
   useEffect(() => {
@@ -282,7 +270,6 @@ function GamePage() {
         },
         sabotage: sabotage,
         "*term": (term = "") => {
-          console.log(term);
           const UIScene = phaserRef.current?.scene?.scene.get("UI") as UI;
           if (UIScene?.matchesSabotageWord(term)) {
             UIScene.stopSabotage();
@@ -350,17 +337,6 @@ function GamePage() {
             gap: "24px",
           }}
         >
-          <h1
-            style={{
-              color: "#fff",
-              margin: 0,
-              fontFamily: "Arial Black",
-              textTransform: "uppercase",
-            }}
-          >
-            Welcome to NoiseWar!
-          </h1>
-
           <img
             src="/assets/logo.png"
             alt="NoiseWar Logo"
@@ -376,7 +352,7 @@ function GamePage() {
           <Lobby
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleEnterRoom}
-            onEnterCreatedRoom={startCreatedMatchRoom}
+            onEnterCreatedRoom={enterCreatedMatchRoom}
             canEnterCreatedRoom={isCreatedRoomReady}
             roomCode={roomCode}
           />
@@ -401,15 +377,6 @@ function GamePage() {
             roomCode={roomCode}
             sabotageWord={activeSabotageWord}
           />
-          <div>
-            <button
-              className="button"
-              onClick={startGame}
-              disabled={isNextDisabled}
-            >
-              Next
-            </button>
-          </div>
         </div>
       </div>
     </div>

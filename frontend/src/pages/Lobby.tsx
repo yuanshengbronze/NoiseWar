@@ -19,7 +19,7 @@ function Lobby({
 }: {
   onCreateRoom: () => void;
   onJoinRoom: (code: string) => void;
-  onEnterCreatedRoom: (code: string) => void;
+  onEnterCreatedRoom: () => void;
   canEnterCreatedRoom: boolean;
   roomCode: string;
 }) {
@@ -169,7 +169,7 @@ function Lobby({
                   fontFamily: "Arial Black",
                   textTransform: "uppercase",
                 }}
-                onClick={() => onEnterCreatedRoom(roomCode)}
+                onClick={onEnterCreatedRoom}
               >
                 {canEnterCreatedRoom
                   ? "Enter Match Room"
