@@ -41,7 +41,6 @@ function GamePage() {
   const [currentPhase, setCurrentPhase] = useState<
     "lobby" | "account" | "playing"
   >("lobby");
-  const [currentSceneKey, setCurrentSceneKey] = useState<string>("");
 
   const [isCreatedRoomReady, setIsCreatedRoomReady] = useState(false);
   const [sabotageWords, setSabotageWords] = useState<string[]>([]);
@@ -67,18 +66,6 @@ function GamePage() {
     setIsLoggedIn(true);
     setUser(username);
   };
-
-  useEffect(() => {
-    const handleCurrentSceneReady = (scene: Phaser.Scene) => {
-      setCurrentSceneKey(scene.scene.key);
-    };
-
-    EventBus.on("current-scene-ready", handleCurrentSceneReady);
-
-    return () => {
-      EventBus.off("current-scene-ready", handleCurrentSceneReady);
-    };
-  }, []);
 
   const handleCreateRoom = () => {
     socket.emit(
