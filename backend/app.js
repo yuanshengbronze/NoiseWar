@@ -181,12 +181,12 @@ const registerSocketHandlers = (io) => {
                 await client.expire(redisPlayersKey, 7200);
                 socket.join(roomCode);
                 socket.data.activeRoom = roomCode;
-
-                if (playerCount == 0) {
-                    io.to(roomCode).emit("game-ready");
-                }
-
-                respond({ success: true, roomCode: roomCode });
+                socket.data.username = username
+                io.to(roomCode).emit("player-joined", {
+                    playerCount: playerCount + 1,
+                    username: username
+                });
+                respond({ success: true});
             } catch (error) {
                 console.error("Redis join error: ", error);
                 respond({ success: false, error: "Failed to join room." });
@@ -212,7 +212,8 @@ const registerSocketHandlers = (io) => {
                         error: "Room is not yet full!"
                     });
                 }
-
+                //for testing
+                //const duration = 0.25 * 60 * 1000;
                 const duration = 1 * 60 * 1000;
                 const startedAt = Date.now();
                 const endsAt = startedAt + duration;
@@ -240,10 +241,12 @@ const registerSocketHandlers = (io) => {
 
                     if (Date.now() >= currentEndsAt) {
                         await client.hSet(redisRoomKey, {
-                            phase: "ended"
+                            phase: "game-end"
                         });
 
-                        io.to(roomCode).emit("game-over");
+                        io.to(roomCode).emit("game-over", {
+                            reason: "Time Out"
+                        });
                     }
                 }, duration);
 
@@ -277,7 +280,9 @@ const registerSocketHandlers = (io) => {
 
                 const redisRoomKey = `game:room:${roomCode}`;
 
-                await client.hSet(redisRoomKey, { phase: "finished" });
+                await client.hSet(redisRoomKey, {
+                    phase: "game-end"
+                });
 
                 io.to(roomCode).emit("game-clear", { winner: username });
             } catch (error) {
@@ -289,10 +294,62 @@ const registerSocketHandlers = (io) => {
             try {
                 if (socket.data.activeRoom) {
                     const roomCode = socket.data.activeRoom;
+                    const redisRoomKey = `game:room:${roomCode}`;
+                    const redisPlayersKey = `${redisRoomKey}:players`;
+                    
+                    const username = socket.data.username; 
+                    const player = {
+                        socketId: socket.id,
+                        username
+                    };
+                    await client.lRem(redisPlayersKey, 0, JSON.stringify(player));
+                    const playerCount = await client.lLen(redisPlayersKey);
+                    
+                    let isRoomOpen = true; 
 
-                    socket.to(roomCode).emit("opponent-disconnected");
+                    if (playerCount === 0) {
+                        //delete room and players key
+                        await client.del(redisPlayersKey);
+                        await client.del(redisRoomKey);
+                        isRoomOpen = false;
+                    }
+                    socket.to(roomCode).emit("player-disconnected", {
+                        username: username,
+                        isRoomOpen: isRoomOpen
+                    });
+                }
+            } catch (error) {
+                console.error("Redis disconnect cleanup error: ", error);
+            }
+        });
 
-                    await client.del(`game:room:${roomCode}`);
+        socket.on("leave-room", async () => {
+            try {
+                if (socket.data.activeRoom) {
+                    const roomCode = socket.data.activeRoom;
+                    const redisRoomKey = `game:room:${roomCode}`;
+                    const redisPlayersKey = `${redisRoomKey}:players`;
+                    
+                    const username = socket.data.username; 
+                    const player = {
+                        socketId: socket.id,
+                        username
+                    };
+                    await client.lRem(redisPlayersKey, 0, JSON.stringify(player));
+                    const playerCount = await client.lLen(redisPlayersKey);
+                    
+                    let isRoomOpen = true; 
+
+                    if (playerCount === 0) {
+                        //delete room and players key
+                        await client.del(redisPlayersKey);
+                        await client.del(redisRoomKey);
+                        isRoomOpen = false;
+                    }
+                    socket.to(roomCode).emit("player-left", {
+                        username: username,
+                        isRoomOpen: isRoomOpen
+                    });
                 }
             } catch (error) {
                 console.error("Redis disconnect cleanup error: ", error);

@@ -76,24 +76,29 @@ export class Game extends Scene
         this.playerName = this.add.bitmapText(this.player.x, this.player.y, 'pixelfont', this.user);
         EventBus.emit('current-scene-ready', this);
 
-        //Socket
+        //Socket Events
         socket.on("receive-sabotage", (data = {}) => {
-            console.log(`Received sabotage`);
             this.receiveSabotage(data.word);
         });
 
-        socket.on("game-over", () => {
-            console.log(`Game Over!`);
-            this.changeScene();
+        socket.once("game-over", (data) => {
+            this.gameOver(data.reason);
         });
 
-        socket.on("game-clear", (data) => {
-            console.log(`Game Clear! The winner is ${data.winner}`);
+        socket.once("game-clear", (data) => {
             this.scene.stop('UI');
             this.scene.start('GameClear', {
                 winner: data.winner
             });
         });
+
+        socket.on("player-disconnected", (data: {username: string}) => {
+            this.gameOver(`${data.username} disconnected`)
+        })
+
+        socket.on("player-left", (data: {username: string}) => {
+            this.gameOver(`${data.username} left`)
+        })
 
         EventBus.emit('current-scene-ready', this);
     }
@@ -110,7 +115,7 @@ export class Game extends Scene
             this.gridEngine.move("player", Direction.DOWN); 
         } 
 
-        //CONTROLS FOR TESTING
+        /*CONTROLS FOR TESTING
         
         if (this.cursors.left.isDown) { 
             this.gridEngine.move("player", Direction.LEFT); 
@@ -125,7 +130,7 @@ export class Game extends Scene
         if (this.cursors.shift.isDown) {
             this.sabotage();
         }
-        
+        */
         
         if (this.cursors.space.isDown) {
             this.direction = 0;
@@ -177,10 +182,13 @@ export class Game extends Scene
         this.direction = direction;
     }
 
-    changeScene()
+    gameOver(reason: string)
     {
         this.scene.stop('UI');
-        this.scene.start('GameOver');
+        this.scene.stop('Game');
+        this.scene.start('GameOver', {
+            reason: reason
+        });
     }
 
     sabotage() {

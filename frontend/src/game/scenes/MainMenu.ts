@@ -1,6 +1,5 @@
 import { GameObjects, Scene } from 'phaser';
 import { EventBus } from '../EventBus';
-import {Socket} from 'socket.io-client';
 import {socket} from '../../socket.ts';
 
 export class MainMenu extends Scene
@@ -9,7 +8,6 @@ export class MainMenu extends Scene
     title!: GameObjects.Text;
     startButton!: GameObjects.Text;
     logo !: GameObjects.Image;
-    socket !: Socket
 
     constructor ()
     {
@@ -18,8 +16,7 @@ export class MainMenu extends Scene
 
     create ()
     {
-        this.socket = socket;
-        this.socket.on("game-started", (data) => {
+        socket.on("game-started", (data) => {
             this.registry.set("startedAt", data.startedAt);
             this.registry.set("endsAt", data.endsAt);
             this.changeScene();

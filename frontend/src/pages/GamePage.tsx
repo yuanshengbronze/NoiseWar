@@ -10,24 +10,24 @@ import Navbar from "../components/Navbar";
 import AccountPage from "./AccountPage";
 import API_URL from "../config";
 import { socket } from "../socket";
+import { IconButton } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
+/// ==================== INTERFACES ================================================================
 interface CreateRoomResponse {
   success: boolean;
-  roomCode?: string;
+  roomCode: string;
   error?: string;
 }
-
 interface JoinRoomResponse {
   success: boolean;
-  roomCode?: string;
+  roomCode: string;
   error?: string;
 }
-
 interface UserProfileResponse {
   username: string;
   sabotageWords: string[];
 }
-
 interface SaveSabotageWordsResponse {
   success: boolean;
   sabotageWords: string[];
@@ -39,10 +39,9 @@ function GamePage() {
   const [user, setUser] = useState<string | null>(null);
   const [roomCode, setRoomCode] = useState<string>("");
   const [currentPhase, setCurrentPhase] = useState<
-    "lobby" | "account" | "playing"
+    "lobby" | "account" | "room"
   >("lobby");
-
-  const [isCreatedRoomReady, setIsCreatedRoomReady] = useState(false);
+  const [playerCount, setPlayerCount] = useState<number>(1);
   const [sabotageWords, setSabotageWords] = useState<string[]>([]);
   const matchStats = {
     matchesPlayed: 8,
@@ -62,6 +61,7 @@ function GamePage() {
     };
   }, []);
 
+  /// ==================== HANDLERS ================================================================
   const handleLogin = (username: string) => {
     setIsLoggedIn(true);
     setUser(username);
@@ -73,26 +73,21 @@ function GamePage() {
       { username: user },
       (response: CreateRoomResponse) => {
         if (response.success) {
-          console.log("Successfully created room:", response.roomCode);
-          setRoomCode(response.roomCode ?? "");
-          setIsCreatedRoomReady(false);
+          const code = response.roomCode;
+          socket.emit(
+            "join-room",
+            { username: user, roomCode: code },
+            (response: JoinRoomResponse) => {
+              if (response.success) {
+                setCurrentPhase("room");
+                setRoomCode(code);
+              } else {
+                alert("Could not enter room: " + response.error);
+              }
+            },
+          );
         } else {
           alert("Could not create room: " + response.error);
-        }
-      },
-    );
-  };
-
-  const enterCreatedMatchRoom = () => {
-    socket.emit(
-      "join-room",
-      { username: user, roomCode: roomCode },
-      (response: JoinRoomResponse) => {
-        if (response.success) {
-          setCurrentPhase("playing");
-          setRoomCode(roomCode);
-        } else {
-          alert("Could not enter room: " + response.error);
         }
       },
     );
@@ -104,13 +99,19 @@ function GamePage() {
       { username: user, roomCode: code },
       (response: JoinRoomResponse) => {
         if (response.success) {
-          setCurrentPhase("playing");
+          setCurrentPhase("room");
           setRoomCode(code);
         } else {
           alert("Could not enter room: " + response.error);
         }
       },
     );
+  };
+
+  const leaveRoom = () => {
+    socket.emit("leave-room");
+    setRoomCode("");
+    setCurrentPhase("lobby");
   };
 
   const handleSabotageWordsChange = async (words: string[]) => {
@@ -145,20 +146,19 @@ function GamePage() {
     }
   };
 
-  const startMainMenu = () => {
+  const startBoot = () => {
     if (phaserRef.current?.scene) {
-      phaserRef.current.scene.scene.start("MainMenu");
+      phaserRef.current.scene.scene.start("Boot");
     } else if (phaserRef.current?.game) {
-      phaserRef.current.game.scene.start("MainMenu");
+      phaserRef.current.game.scene.start("Boot");
     }
   };
 
   useEffect(() => {
     EventBus.on("GamePage", () => {
-      startMainMenu();
+      startBoot();
       setCurrentPhase("lobby");
       setRoomCode("");
-      setIsCreatedRoomReady(false);
     });
 
     return () => {
@@ -167,20 +167,42 @@ function GamePage() {
   }, []);
 
   useEffect(() => {
-    if (currentPhase === "playing") {
-      startMainMenu();
+    if (currentPhase === "room") {
+      startBoot();
     }
   }, [currentPhase]);
 
   useEffect(() => {
-    const markCreatedRoomReady = () => {
-      setIsCreatedRoomReady(true);
+    const handlePlayerJoined = (response: {
+      playerCount: number;
+      username: string;
+    }) => {
+      if (playerCount == 2) {
+        alert(`${response.username} joined the room`);
+      }
+      setPlayerCount(response.playerCount);
     };
 
-    socket.on("game-ready", markCreatedRoomReady);
+    const handlePlayerDisconnected = (response: {
+      username: string;
+      isRoomOpen: boolean;
+    }) => {
+      if (response.isRoomOpen) {
+        setPlayerCount(1);
+        alert(`${response.username} left the room`);
+      } else {
+        setCurrentPhase("lobby");
+      }
+    };
+
+    socket.on("player-joined", handlePlayerJoined);
+    socket.on("player-disconnected", handlePlayerDisconnected);
+    socket.on("player-left", handlePlayerDisconnected);
 
     return () => {
-      socket.off("game-ready", markCreatedRoomReady);
+      socket.off("player-joined", handlePlayerJoined);
+      socket.off("player-disconnected", handlePlayerDisconnected);
+      socket.off("player-left", handlePlayerDisconnected);
     };
   }, []);
 
@@ -291,7 +313,7 @@ function GamePage() {
       data-room-code={roomCode ?? ""}
       style={{ width: "100%", height: "100vh", overflow: "hidden" }}
     >
-      {currentPhase !== "playing" && user && (
+      {currentPhase !== "room" && user && (
         <Navbar
           username={user}
           currentPage={currentPhase}
@@ -339,31 +361,116 @@ function GamePage() {
           <Lobby
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleEnterRoom}
-            onEnterCreatedRoom={enterCreatedMatchRoom}
-            canEnterCreatedRoom={isCreatedRoomReady}
             roomCode={roomCode}
           />
         </div>
       )}
 
-      {/* Displays the Phaser Canvas */}
+      {/* Displays the Phaser Canvas inside the Room */}
       <div
         style={{
-          display: currentPhase === "playing" ? "block" : "none",
+          display: currentPhase === "room" ? "flex" : "none",
+          flexDirection: "column",
           width: "100%",
           height: "100%",
         }}
       >
-        <div>
-          <br />
-          <br />
-          <br />
+        {/* Top Bar */}
+        <div
+          style={{
+            position: "relative",
+            textAlign: "center",
+            padding: "12px 20px",
+            background: "#1e1e24", // High contrast dark gray background
+            borderBottom: "2px solid #2d2d34",
+            color: "#ffffff", // Forces text to stay white on dark bg
+          }}
+        >
+          {/* Room Code */}
+          <h2
+            style={{
+              margin: "0 0 4px 0",
+              fontSize: "22px",
+              fontWeight: 600,
+              color: "#ffffff",
+            }}
+          >
+            Room Code: {roomCode}
+          </h2>
+
+          {/* Player Count Indicator */}
+          <div
+            style={{
+              fontSize: "14px",
+              color: playerCount === 2 ? "#4caf50" : "#ffb74d", // Green when full, amber when waiting
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                backgroundColor: playerCount === 2 ? "#4caf50" : "#ffb74d",
+              }}
+            />
+            Players in Room: {playerCount} / 2
+          </div>
+
+          {/* Copy Button */}
+          <IconButton
+            onClick={() => {
+              navigator.clipboard.writeText(roomCode);
+              alert("Room code copied: " + roomCode);
+            }}
+            sx={{
+              color: "#ffffff",
+              "&:hover": { bgcolor: "rgba(255, 255, 255, 0.1)" },
+              transition: "background-color 0.2s",
+              position: "absolute",
+              top: 12,
+              right: 16,
+            }}
+            aria-label="copy room code"
+          >
+            <ContentCopyIcon fontSize="small" />
+          </IconButton>
+        </div>
+
+        {/* Phaser Game */}
+        <div style={{ flexGrow: 1 }}>
           <PhaserGame
             ref={phaserRef}
             user={user}
             roomCode={roomCode}
             sabotageWord={activeSabotageWord}
           />
+        </div>
+
+        {/* Leave / Close Room */}
+        <div
+          style={{ textAlign: "center", padding: "15px", background: "#222" }}
+        >
+          <button
+            onClick={leaveRoom}
+            style={{
+              padding: "10px 25px",
+              background: "#d9534f",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+              fontSize: "16px",
+              fontWeight: "bold",
+            }}
+          >
+            Close / Leave Room
+          </button>
         </div>
       </div>
     </div>

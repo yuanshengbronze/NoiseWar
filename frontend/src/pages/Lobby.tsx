@@ -5,22 +5,16 @@ import {
   Typography,
   Box,
   Button,
-  IconButton,
   TextField,
 } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
 function Lobby({
   onCreateRoom,
   onJoinRoom,
-  onEnterCreatedRoom,
-  canEnterCreatedRoom,
   roomCode,
 }: {
   onCreateRoom: () => void;
   onJoinRoom: (code: string) => void;
-  onEnterCreatedRoom: () => void;
-  canEnterCreatedRoom: boolean;
   roomCode: string;
 }) {
   const [joinCode, setJoinCode] = useState("");
@@ -140,56 +134,6 @@ function Lobby({
               >
                 Your Room Code
               </Typography>
-
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: "black",
-                  color: "#000000",
-                  letterSpacing: 4,
-                  mb: 2,
-                }}
-              >
-                {roomCode}
-              </Typography>
-
-              <Button
-                variant="outlined"
-                fullWidth
-                disabled={!canEnterCreatedRoom}
-                sx={{
-                  bgcolor: "#1619a6",
-                  color: "#fff",
-                  "&:hover": { bgcolor: "#3b34b3" },
-                  "&:disabled": {
-                    bgcolor: "#312E81",
-                    color: "rgba(255,255,255,0.6)",
-                  },
-                  fontWeight: "bold",
-                  fontFamily: "Arial Black",
-                  textTransform: "uppercase",
-                }}
-                onClick={onEnterCreatedRoom}
-              >
-                {canEnterCreatedRoom
-                  ? "Enter Match Room"
-                  : "Waiting for Opponent"}
-              </Button>
-
-              <IconButton
-                onClick={() => navigator.clipboard.writeText(roomCode)}
-                sx={{
-                  color: "#000000",
-                  "&:hover": { bgcolor: "rgba(0, 0, 0, 0.1)" },
-                  transition: "background-color 0.2s",
-                  position: "absolute",
-                  top: 8,
-                  right: 8,
-                }}
-                aria-label="copy room code"
-              >
-                <ContentCopyIcon fontSize="small" />
-              </IconButton>
             </Box>
           )}
         </CardContent>
