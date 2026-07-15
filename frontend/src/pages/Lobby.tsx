@@ -29,6 +29,11 @@ function Lobby({
     }
   };
 
+  const closeJoinRoom = () => {
+    setIsJoiningRoom(false);
+    setJoinCode("");
+  };
+
   return (
     <Box
       sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
@@ -77,7 +82,7 @@ function Lobby({
           </Button>
 
           {isJoiningRoom && (
-            <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 2 }}>
               <TextField
                 size="small"
                 label="Room code"
@@ -95,19 +100,34 @@ function Lobby({
                   borderRadius: 1,
                 }}
               />
-              <Button
-                variant="contained"
-                onClick={handleJoinRoom}
-                sx={{
-                  minWidth: 118,
-                  bgcolor: "#059669",
-                  "&:hover": { bgcolor: "#047857" },
-                  fontWeight: "bold",
-                  fontFamily: "Arial Black",
-                }}
-              >
-                Confirm
-              </Button>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={handleJoinRoom}
+                  sx={{
+                    bgcolor: "#059669",
+                    "&:hover": { bgcolor: "#047857" },
+                    fontWeight: "bold",
+                    fontFamily: "Arial Black",
+                  }}
+                >
+                  Confirm
+                </Button>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={closeJoinRoom}
+                  sx={{
+                    bgcolor: "#DC2626",
+                    "&:hover": { bgcolor: "#B91C1C" },
+                    fontWeight: "bold",
+                    fontFamily: "Arial Black",
+                  }}
+                >
+                  Close
+                </Button>
+              </Box>
             </Box>
           )}
 
