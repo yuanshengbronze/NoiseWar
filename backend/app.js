@@ -25,6 +25,10 @@ const getSabotageWordsKey = (username) => {
     return `user:${encodeURIComponent(username)}:sabotageWords`;
 };
 
+const getActiveUserKey = (username) => {
+    return `active:user:${encodeURIComponent(username)}`;
+};
+
 app.post("/api/event/:eventId/login", async (req, res) => {
     const { eventId } = req.params;
     const { username, password } = req.body;
@@ -120,6 +124,38 @@ app.put("/api/user/:username/sabotage-words", async (req, res) => {
 
 const registerSocketHandlers = (io) => {
     io.on("connection", (socket) => {
+        socket.on("register-active-user", async (data = {}, callback) => {
+            const respond = createSocketResponse(callback);
+
+            try {
+                const username = data.username?.toString().trim();
+
+                if (!username) {
+                    return respond({ success: false, error: "Username is required." });
+                }
+
+                const activeUserKey = getActiveUserKey(username);
+                const previousSocketId = await client.get(activeUserKey);
+
+                if (previousSocketId && previousSocketId !== socket.id) {
+                    const previousSocket = io.sockets.sockets.get(previousSocketId);
+
+                    if (previousSocket) {
+                        previousSocket.emit("logged-out-elsewhere");
+                        setTimeout(() => previousSocket.disconnect(true), 100);
+                    }
+                }
+
+                await client.set(activeUserKey, socket.id, { EX: 7200 });
+                socket.data.username = username;
+
+                respond({ success: true });
+            } catch (error) {
+                console.error("Failed to register active user: ", error);
+                respond({ success: false, error: "Failed to register active user." });
+            }
+        });
+
         socket.on("create-room", async (data = {}, callback) => {
             const respond = createSocketResponse(callback);
 
@@ -292,6 +328,15 @@ const registerSocketHandlers = (io) => {
 
         socket.on("disconnect", async () => {
             try {
+                if (socket.data.username) {
+                    const activeUserKey = getActiveUserKey(socket.data.username);
+                    const activeSocketId = await client.get(activeUserKey);
+
+                    if (activeSocketId === socket.id) {
+                        await client.del(activeUserKey);
+                    }
+                }
+
                 if (socket.data.activeRoom) {
                     const roomCode = socket.data.activeRoom;
                     const redisRoomKey = `game:room:${roomCode}`;

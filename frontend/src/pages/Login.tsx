@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type AuthMode, getAuthHeadingAction, submitAuthRequest } from "../authApi";
 interface LoginProps {
-  loginSuccess: (username: string) => void;
+  loginSuccess: (username: string) => void | Promise<void>;
 }
 
 function Login({ loginSuccess }: LoginProps) {
@@ -25,10 +25,17 @@ function Login({ loginSuccess }: LoginProps) {
 
     const result = await submitAuthRequest(authMode, username, password);
 
-    if (result.ok) {
-      loginSuccess(result.username);
-    } else {
+    if (!result.ok) {
       setErrorMessage(result.error);
+      return;
+    }
+
+    try {
+      await loginSuccess(result.username);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Something went wrong",
+      );
     }
   };
 

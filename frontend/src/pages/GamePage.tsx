@@ -33,6 +33,10 @@ interface SaveSabotageWordsResponse {
   sabotageWords: string[];
   error?: string;
 }
+interface RegisterActiveUserResponse {
+  success: boolean;
+  error?: string;
+}
 
 function GamePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -62,7 +66,29 @@ function GamePage() {
   }, []);
 
   /// ==================== HANDLERS ================================================================
-  const handleLogin = (username: string) => {
+  const handleForcedLogout = () => {
+    alert("This account was logged in somewhere else.");
+    setIsLoggedIn(false);
+    setUser(null);
+    setRoomCode("");
+    setCurrentPhase("lobby");
+    setPlayerCount(1);
+    socket.disconnect();
+  };
+
+  const handleLoginCallback = async (username: string) => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const response = await new Promise<RegisterActiveUserResponse>((resolve) => {
+      socket.emit("register-active-user", { username }, resolve);
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || "Could not start your session.");
+    }
+
     setIsLoggedIn(true);
     setUser(username);
   };
@@ -198,11 +224,13 @@ function GamePage() {
     socket.on("player-joined", handlePlayerJoined);
     socket.on("player-disconnected", handlePlayerDisconnected);
     socket.on("player-left", handlePlayerDisconnected);
+    socket.on("logged-out-elsewhere", handleForcedLogout);
 
     return () => {
       socket.off("player-joined", handlePlayerJoined);
       socket.off("player-disconnected", handlePlayerDisconnected);
       socket.off("player-left", handlePlayerDisconnected);
+      socket.off("logged-out-elsewhere", handleForcedLogout);
     };
   }, []);
 
@@ -304,7 +332,7 @@ function GamePage() {
   }, [activeSabotageWord]);
 
   if (!isLoggedIn) {
-    return <Login loginSuccess={handleLogin} />;
+    return <Login loginSuccess={handleLoginCallback} />;
   }
 
   return (
