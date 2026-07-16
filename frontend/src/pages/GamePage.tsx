@@ -27,6 +27,7 @@ interface JoinRoomResponse {
 interface UserProfileResponse {
   username: string;
   sabotageWords: string[];
+  stats: MatchStats;
 }
 interface SaveSabotageWordsResponse {
   success: boolean;
@@ -36,6 +37,15 @@ interface SaveSabotageWordsResponse {
 interface RegisterActiveUserResponse {
   success: boolean;
   error?: string;
+}
+interface MatchStats {
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+}
+interface GameClearResponse {
+  winner: string;
+  stats?: Record<string, MatchStats>;
 }
 
 function GamePage() {
@@ -47,11 +57,11 @@ function GamePage() {
   >("lobby");
   const [playerCount, setPlayerCount] = useState<number>(1);
   const [sabotageWords, setSabotageWords] = useState<string[]>([]);
-  const matchStats = {
-    matchesPlayed: 8,
-    wins: 5,
-    losses: 3,
-  };
+  const [matchStats, setMatchStats] = useState<MatchStats>({
+    matchesPlayed: 0,
+    wins: 0,
+    losses: 0,
+  });
 
   const phaserRef = useRef<IRefPhaserGame | null>(null);
   const activeSabotageWord = sabotageWords[0] || "";
@@ -225,14 +235,20 @@ function GamePage() {
     socket.on("player-disconnected", handlePlayerDisconnected);
     socket.on("player-left", handlePlayerDisconnected);
     socket.on("logged-out-elsewhere", handleForcedLogout);
+    socket.on("game-clear", (response: GameClearResponse) => {
+      if (user && response.stats?.[user]) {
+        setMatchStats(response.stats[user]);
+      }
+    });
 
     return () => {
       socket.off("player-joined", handlePlayerJoined);
       socket.off("player-disconnected", handlePlayerDisconnected);
       socket.off("player-left", handlePlayerDisconnected);
       socket.off("logged-out-elsewhere", handleForcedLogout);
+      socket.off("game-clear");
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -251,6 +267,7 @@ function GamePage() {
         }
 
         setSabotageWords(data.sabotageWords);
+        setMatchStats(data.stats);
       } catch (error) {
         console.error(error);
         setSabotageWords([]);

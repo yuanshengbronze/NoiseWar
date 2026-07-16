@@ -11,3 +11,10 @@ test("normalizeSabotageWords removes invalid values", () => {
 test("normalizeSabotageWords trims, lowercases, and deduplicates words", () => {
     assert.deepEqual(normalizeSabotageWords([" Freeze ", "freeze", "SLOW"]), ["freeze", "slow"]);
 });
+
+test("normalizeSabotageWords only keeps words made of letters", () => {
+    assert.deepEqual(
+        normalizeSabotageWords(["pause!", "slow2", "ice wall", "freeze", "shield"]),
+        ["freeze", "shield"]
+    );
+});

@@ -31,6 +31,7 @@ function AccountPage({
   onSabotageWordsChange,
 }: AccountPageProps) {
   const [newWord, setNewWord] = useState("");
+  const [wordError, setWordError] = useState("");
   const winRate =
     matchStats.matchesPlayed === 0
       ? 0
@@ -39,13 +40,26 @@ function AccountPage({
   const addSabotageWord = () => {
     const cleanedWord = newWord.trim().toLowerCase();
 
-    if (!cleanedWord || sabotageWords.includes(cleanedWord)) {
+    if (!cleanedWord) {
       setNewWord("");
+      setWordError("");
+      return;
+    }
+
+    if (!/^[a-z]+$/.test(cleanedWord)) {
+      setWordError("Only letters are allowed.");
+      return;
+    }
+
+    if (sabotageWords.includes(cleanedWord)) {
+      setNewWord("");
+      setWordError("");
       return;
     }
 
     onSabotageWordsChange([...sabotageWords, cleanedWord]);
     setNewWord("");
+    setWordError("");
   };
 
   const removeSabotageWord = (wordToRemove: string) => {
@@ -144,12 +158,17 @@ function AccountPage({
               The first word in this list is currently used as the escape word.
             </Typography>
 
-            <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+            <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start", mb: 2 }}>
               <TextField
                 size="small"
                 label="New word"
                 value={newWord}
-                onChange={(event) => setNewWord(event.target.value)}
+                error={Boolean(wordError)}
+                helperText={wordError || " "}
+                onChange={(event) => {
+                  setNewWord(event.target.value);
+                  setWordError("");
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -158,10 +177,14 @@ function AccountPage({
                 }}
                 fullWidth
               />
-              <Button variant="contained" onClick={addSabotageWord}>
+              <Button
+                variant="contained"
+                onClick={addSabotageWord}
+                sx={{ height: 40 }}
+              >
                 Add
               </Button>
-            </Stack>
+            </Box>
 
             {sabotageWords.length > 0 ? (
               <Stack

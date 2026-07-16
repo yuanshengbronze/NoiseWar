@@ -4,12 +4,13 @@ const normalizeSabotageWords = (words) => {
     }
 
     const seenWords = new Set();
+    const lettersOnlyPattern = /^[a-z]+$/;
 
     return words
         .filter((word) => typeof word === "string")
         .map((word) => word.trim().toLowerCase())
         .filter((word) => {
-            if (!word || seenWords.has(word)) {
+            if (!lettersOnlyPattern.test(word) || seenWords.has(word)) {
                 return false;
             }
 
