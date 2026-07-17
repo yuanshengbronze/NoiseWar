@@ -1,5 +1,5 @@
 import { EventBus } from '../EventBus';
-import { Scene } from 'phaser';
+import { Scene, Scenes } from 'phaser';
 import {socket} from '../../socket.ts';
 
 export class GameOver extends Scene
@@ -29,6 +29,11 @@ export class GameOver extends Scene
 
         socket.once("player-disconnected", () => {
             this.scene.stop("GameOver");
+            this.scene.start('MainMenu');
+        })
+
+        socket.once("player-left", () => {
+            this.scene.stop("GameClear");
             this.scene.start('MainMenu');
         })
 
@@ -79,7 +84,16 @@ export class GameOver extends Scene
                 },
             );
         });
+        EventBus.on("leaving-room", this.handleLeavingRoom, this);
         
+        this.events.once(Scenes.Events.SHUTDOWN, () => {
+            EventBus.off("leaving-room", this.handleLeavingRoom, this);
+        });
         EventBus.emit('current-scene-ready', this);
+    }
+
+    handleLeavingRoom() {
+        EventBus.emit("phaser-cleanup-complete");
+        this.scene.stop("GameClear");
     }
 }

@@ -93,7 +93,7 @@ function GamePage() {
     );
   };
 
-  const handleEnterRoom = (code: string) => {
+  const handleJoinRoom = (code: string) => {
     socket.emit(
       "join-room",
       { username: user, roomCode: code },
@@ -109,9 +109,18 @@ function GamePage() {
   };
 
   const leaveRoom = () => {
-    socket.emit("leave-room");
-    setRoomCode("");
-    setCurrentPhase("lobby");
+    const payload = {
+      roomCode,
+      username: user,
+    };
+
+    EventBus.once("phaser-cleanup-complete", () => {
+      socket.emit("leave-room", payload);
+      setRoomCode("");
+      setCurrentPhase("lobby");
+    });
+
+    EventBus.emit("leaving-room", payload);
   };
 
   const handleSabotageWordsChange = async (words: string[]) => {
@@ -261,26 +270,63 @@ function GamePage() {
         }
       };
 
-      const commands: Record<string, (term?: string) => void> = {
-        stop: () => {
-          control(0);
+      type AnnyangCommand =
+        | ((term?: string) => void)
+        | {
+            regexp: RegExp;
+            callback: (term?: string) => void;
+          };
+
+      const commands: Record<string, AnnyangCommand> = {
+        stop: {
+          regexp: /^stop\s*[.!?]?$/i,
+          callback: () => {
+            control(0);
+          },
         },
-        up: () => {
-          control(1);
+
+        above: {
+          regexp: /^above\s*[.!?]?$/i,
+          callback: () => {
+            control(1);
+          },
         },
-        down: () => {
-          control(2);
+
+        down: {
+          regexp: /^down\s*[.!?]?$/i,
+          callback: () => {
+            control(2);
+          },
         },
-        left: () => {
-          control(3);
+
+        left: {
+          regexp: /^left\s*[.!?]?$/i,
+          callback: () => {
+            control(3);
+          },
         },
-        right: () => {
-          control(4);
+
+        right: {
+          regexp: /^right\s*[.!?]?$/i,
+          callback: () => {
+            control(4);
+          },
         },
-        sabotage: sabotage,
+
+        sabotage: {
+          regexp: /^sabotage\s*[.!?]?$/i,
+          callback: sabotage,
+        },
+
         "*term": (term = "") => {
+          const normalizedTerm = term
+            .toLowerCase()
+            .trim()
+            .replace(/[.,!?;:]+$/g, "");
+
           const UIScene = phaserRef.current?.scene?.scene.get("UI") as UI;
-          if (UIScene?.matchesSabotageWord(term)) {
+
+          if (UIScene?.matchesSabotageWord(normalizedTerm)) {
             UIScene.stopSabotage();
           }
         },
@@ -291,6 +337,13 @@ function GamePage() {
       }
 
       annyang.addCommands(commands);
+      annyang.addCallback("resultMatch", (userSaid) => {
+        console.log(userSaid);
+        EventBus.emit("command", {
+          command: userSaid,
+        });
+      });
+
       annyang.start();
       console.log("voice recognition started");
 
@@ -360,7 +413,7 @@ function GamePage() {
 
           <Lobby
             onCreateRoom={handleCreateRoom}
-            onJoinRoom={handleEnterRoom}
+            onJoinRoom={handleJoinRoom}
             roomCode={roomCode}
           />
         </div>

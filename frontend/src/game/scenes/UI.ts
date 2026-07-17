@@ -1,12 +1,14 @@
-import { Scene } from 'phaser';
+import { Scene, Scenes } from 'phaser';
 import {Game} from './Game';
 import {socket} from "../../socket";
-
+import { EventBus } from '../EventBus';
 
 export class UI extends Scene
 {
     camera!: Phaser.Cameras.Scene2D.Camera;
     timeText!: Phaser.GameObjects.Text;
+    commandText!: Phaser.GameObjects.Text;
+    commandTween?: Phaser.Tweens.Tween;
     sabotageText!: Phaser.GameObjects.Text;
     sabotageWord!: string;
     gameScene!: Game;
@@ -35,9 +37,34 @@ export class UI extends Scene
             stroke: '#000000', 
             strokeThickness: 3,
             align: "center"
+        })
+
+        this.commandText = this.add.text(
+            this.scale.width / 2,
+            30,
+            "",
+            {
+                fontFamily: "Arial",
+                fontSize: "28px",
+                color: "#ffffff",
+                backgroundColor: "#000000",
+                padding: {
+                x: 12,
+                y: 6,
+                },
+            }
+        );
+
+        this.commandText
+        .setOrigin(0.5, 0)
+        .setDepth(9999)
+        .setScrollFactor(0)
+        .setAlpha(0);
+
+        this.events.once(Scenes.Events.SHUTDOWN, () => {
+            EventBus.off("command", this.displayCommand, this);
         });
 
-        this.cursors = this.input.keyboard!.createCursorKeys();
         this.sabotageWord = this.registry.get("sabotageWord") || "";
         const sabotagePrompt = this.sabotageWord
             ? `SAY THE WORD '${this.sabotageWord.toUpperCase()}'`
@@ -51,6 +78,8 @@ export class UI extends Scene
             strokeThickness: 3,
             align: "center"
         }).setVisible(false);
+
+        EventBus.on("command", this.displayCommand, this);
 
         this.scene.launch('Game');
     }
@@ -116,5 +145,25 @@ export class UI extends Scene
             roomCode: this.registry.get("roomCode"),
             username: this.gameScene.user
         })
+    }
+
+    displayCommand(data: { command: string }) {
+        this.commandText.setText(`${data.command}`);
+
+        if (this.commandTween) {
+        this.commandTween.stop();
+        }
+
+        this.commandText.setAlpha(1);
+        this.commandText.setScale(1.15);
+
+        this.commandTween = this.tweens.add({
+        targets: this.commandText,
+        alpha: 0,
+        scale: 1,
+        duration: 400,
+        delay: 500,
+        ease: "Power2",
+        });
     }
 }

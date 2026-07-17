@@ -34,7 +34,6 @@ export class MainMenu extends Scene
 
         const roomCode = this.registry.get("roomCode");
 
-
         this.startButton.on("pointerover", () => {
             this.startButton.setStyle({ backgroundColor: "#555555" });
         });

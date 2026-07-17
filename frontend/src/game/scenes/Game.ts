@@ -1,5 +1,5 @@
 import { EventBus } from '../EventBus';
-import { Scene} from 'phaser';
+import { Scene, Scenes} from 'phaser';
 import { Direction, GridEngine } from 'grid-engine';
 import {socket} from '../../socket.ts';
 
@@ -81,24 +81,31 @@ export class Game extends Scene
             this.receiveSabotage(data.word);
         });
 
+        this.events.once(Scenes.Events.SHUTDOWN, () => {
+            socket.off("receive-sabotage");
+        });
+
         socket.once("game-over", (data) => {
             this.gameOver(data.reason);
         });
 
         socket.once("game-clear", (data) => {
-            this.scene.stop('UI');
-            this.scene.start('GameClear', {
-                winner: data.winner
-            });
+            this.gameClear(data.winner);
         });
 
-        socket.on("player-disconnected", (data: {username: string}) => {
+        socket.once("player-disconnected", (data: {username: string}) => {
             this.gameOver(`${data.username} disconnected`)
         })
 
-        socket.on("player-left", (data: {username: string}) => {
+        socket.once("player-left", (data: {username: string}) => {
             this.gameOver(`${data.username} left`)
         })
+
+        //EventBus
+        EventBus.on("leaving-room", this.handleLeavingRoom, this);
+        this.events.once(Scenes.Events.SHUTDOWN, () => {
+            EventBus.off("leaving-room", this.handleLeavingRoom, this);
+        });
 
         EventBus.emit('current-scene-ready', this);
     }
@@ -116,7 +123,6 @@ export class Game extends Scene
         } 
 
         /*CONTROLS FOR TESTING
-        
         if (this.cursors.left.isDown) { 
             this.gridEngine.move("player", Direction.LEFT); 
         } else if (this.cursors.right.isDown) { 
@@ -191,6 +197,15 @@ export class Game extends Scene
         });
     }
 
+    gameClear(winner: string)
+    {
+        this.scene.stop('Game');
+        this.scene.stop('UI');
+        this.scene.start('GameClear', {
+            winner: winner
+        });
+    }
+
     sabotage() {
         const sabotageWord = this.registry.get("sabotageWord") || "";
 
@@ -221,5 +236,14 @@ export class Game extends Scene
             repeat: -1,
             yoyo: false,
         });
+    }
+
+    handleLeavingRoom() {
+        this.scene.stop("UI");
+        this.scene.stop("GameOver");
+        this.scene.stop("GameClear");
+
+        EventBus.emit("phaser-cleanup-complete");
+        this.scene.stop("Game");
     }
 }

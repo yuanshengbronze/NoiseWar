@@ -212,6 +212,7 @@ const registerSocketHandlers = (io) => {
                         error: "Room is not yet full!"
                     });
                 }
+                
                 //for testing
                 //const duration = 0.25 * 60 * 1000;
                 const duration = 1 * 60 * 1000;
@@ -272,7 +273,8 @@ const registerSocketHandlers = (io) => {
 
         socket.on("player-finished", async (data = {}) => {
             try {
-                const { roomCode, username } = data;
+                const roomCode = data.roomCode?.toString().toUpperCase();
+                const username = data.username;
 
                 if (!roomCode || !username) {
                     return;
@@ -281,7 +283,7 @@ const registerSocketHandlers = (io) => {
                 const redisRoomKey = `game:room:${roomCode}`;
 
                 await client.hSet(redisRoomKey, {
-                    phase: "game-end"
+                    phase: "lobby"
                 });
 
                 io.to(roomCode).emit("game-clear", { winner: username });
@@ -308,11 +310,14 @@ const registerSocketHandlers = (io) => {
                     let isRoomOpen = true; 
 
                     if (playerCount === 0) {
-                        //delete room and players key
                         await client.del(redisPlayersKey);
                         await client.del(redisRoomKey);
                         isRoomOpen = false;
                     }
+
+                    await client.hSet(redisRoomKey, {
+                        phase: "lobby"
+                    });
                     socket.to(roomCode).emit("player-disconnected", {
                         username: username,
                         isRoomOpen: isRoomOpen
@@ -341,7 +346,6 @@ const registerSocketHandlers = (io) => {
                     let isRoomOpen = true; 
 
                     if (playerCount === 0) {
-                        //delete room and players key
                         await client.del(redisPlayersKey);
                         await client.del(redisRoomKey);
                         isRoomOpen = false;
