@@ -25,6 +25,33 @@ const getSabotageWordsKey = (username) => {
     return `user:${encodeURIComponent(username)}:sabotageWords`;
 };
 
+const getActiveUserKey = (username) => {
+    return `active:user:${encodeURIComponent(username)}`;
+};
+
+const getStatsKey = (username) => {
+    return `user:${encodeURIComponent(username)}:stats`;
+};
+
+const getUserStats = async (username) => {
+    const stats = await client.hGetAll(getStatsKey(username));
+
+    return {
+        matchesPlayed: Number(stats.matchesPlayed || 0),
+        wins: Number(stats.wins || 0),
+        losses: Number(stats.losses || 0)
+    };
+};
+
+const recordMatchResult = async (username, result) => {
+    const statsKey = getStatsKey(username);
+
+    await client.hIncrBy(statsKey, "matchesPlayed", 1);
+    await client.hIncrBy(statsKey, result, 1);
+
+    return getUserStats(username);
+};
+
 app.post("/api/event/:eventId/login", async (req, res) => {
     const { eventId } = req.params;
     const { username, password } = req.body;
@@ -90,10 +117,12 @@ app.get("/api/user/:username/profile", async (req, res) => {
     try {
         const { username } = req.params;
         const savedWords = await client.get(getSabotageWordsKey(username));
+        const stats = await getUserStats(username);
 
         res.json({
             username,
-            sabotageWords: savedWords ? JSON.parse(savedWords) : []
+            sabotageWords: savedWords ? JSON.parse(savedWords) : [],
+            stats
         });
     } catch (error) {
         console.error("Failed to fetch user profile: ", error);
@@ -120,6 +149,38 @@ app.put("/api/user/:username/sabotage-words", async (req, res) => {
 
 const registerSocketHandlers = (io) => {
     io.on("connection", (socket) => {
+        socket.on("register-active-user", async (data = {}, callback) => {
+            const respond = createSocketResponse(callback);
+
+            try {
+                const username = data.username?.toString().trim();
+
+                if (!username) {
+                    return respond({ success: false, error: "Username is required." });
+                }
+
+                const activeUserKey = getActiveUserKey(username);
+                const previousSocketId = await client.get(activeUserKey);
+
+                if (previousSocketId && previousSocketId !== socket.id) {
+                    const previousSocket = io.sockets.sockets.get(previousSocketId);
+
+                    if (previousSocket) {
+                        previousSocket.emit("logged-out-elsewhere");
+                        setTimeout(() => previousSocket.disconnect(true), 100);
+                    }
+                }
+
+                await client.set(activeUserKey, socket.id, { EX: 7200 });
+                socket.data.username = username;
+
+                respond({ success: true });
+            } catch (error) {
+                console.error("Failed to register active user: ", error);
+                respond({ success: false, error: "Failed to register active user." });
+            }
+        });
+
         socket.on("create-room", async (data = {}, callback) => {
             const respond = createSocketResponse(callback);
 
@@ -138,6 +199,15 @@ const registerSocketHandlers = (io) => {
                 });
 
                 await client.expire(redisRoomKey, 7200);
+
+                const player = {
+                    socketId: socket.id,
+                    username
+                };
+                const redisPlayersKey = `${redisRoomKey}:players`;
+                await client.rPush(redisPlayersKey, JSON.stringify(player));
+                await client.expire(redisPlayersKey, 7200);
+
                 socket.join(roomCode);
                 socket.data.activeRoom = roomCode;
                 respond({ success: true, roomCode: roomCode });
@@ -167,23 +237,35 @@ const registerSocketHandlers = (io) => {
                 }
 
                 const playerCount = await client.lLen(redisPlayersKey);
+                const existingPlayers = await client.lRange(redisPlayersKey, 0, -1);
+                const isAlreadyInRoom = existingPlayers.some((playerJson) => {
+                    try {
+                        const player = JSON.parse(playerJson);
+                        return player.socketId === socket.id || player.username === username;
+                    } catch {
+                        return false;
+                    }
+                });
 
-                if (playerCount >= 2) {
+                if (playerCount >= 2 && !isAlreadyInRoom) {
                     return respond({ success: false, error: "Room is already full." });
                 }
 
-                const player = {
-                    socketId: socket.id,
-                    username
-                };
+                if (!isAlreadyInRoom) {
+                    const player = {
+                        socketId: socket.id,
+                        username
+                    };
 
-                await client.rPush(redisPlayersKey, JSON.stringify(player));
-                await client.expire(redisPlayersKey, 7200);
+                    await client.rPush(redisPlayersKey, JSON.stringify(player));
+                    await client.expire(redisPlayersKey, 7200);
+                }
+
                 socket.join(roomCode);
                 socket.data.activeRoom = roomCode;
                 socket.data.username = username
                 io.to(roomCode).emit("player-joined", {
-                    playerCount: playerCount + 1,
+                    playerCount: isAlreadyInRoom ? playerCount : playerCount + 1,
                     username: username
                 });
                 respond({ success: true});
@@ -205,6 +287,14 @@ const registerSocketHandlers = (io) => {
                 const redisRoomKey = `game:room:${roomCode}`;
                 const redisPlayersKey = `${redisRoomKey}:players`
                 const playerCount = await client.lLen(redisPlayersKey);
+                const room = await client.hGetAll(redisRoomKey);
+
+                if (room?.phase === "playing") {
+                    return respond({
+                        success: false,
+                        error: "Game is already in progress."
+                    });
+                }
 
                 if (playerCount < 2) {
                     return respond({
@@ -281,12 +371,44 @@ const registerSocketHandlers = (io) => {
                 }
 
                 const redisRoomKey = `game:room:${roomCode}`;
+                const redisPlayersKey = `${redisRoomKey}:players`;
+                const room = await client.hGetAll(redisRoomKey);
+
+                if (!room || room.phase !== "playing") {
+                    return;
+                }
+
+                const playerJsonList = await client.lRange(redisPlayersKey, 0, -1);
+                const players = playerJsonList
+                    .map((playerJson) => {
+                        try {
+                            return JSON.parse(playerJson);
+                        } catch {
+                            return null;
+                        }
+                    })
+                    .filter(Boolean);
+                const winner = players.find((player) => player.username === username);
+
+                if (!winner) {
+                    return;
+                }
 
                 await client.hSet(redisRoomKey, {
                     phase: "lobby"
                 });
 
-                io.to(roomCode).emit("game-clear", { winner: username });
+                const updatedStatsByUsername = {};
+
+                for (const player of players) {
+                    const result = player.username === username ? "wins" : "losses";
+                    updatedStatsByUsername[player.username] = await recordMatchResult(player.username, result);
+                }
+
+                io.to(roomCode).emit("game-clear", {
+                    winner: username,
+                    stats: updatedStatsByUsername
+                });
             } catch (error) {
                 console.error("Redis finish error: ", error);
             }
@@ -294,6 +416,15 @@ const registerSocketHandlers = (io) => {
 
         socket.on("disconnect", async () => {
             try {
+                if (socket.data.username) {
+                    const activeUserKey = getActiveUserKey(socket.data.username);
+                    const activeSocketId = await client.get(activeUserKey);
+
+                    if (activeSocketId === socket.id) {
+                        await client.del(activeUserKey);
+                    }
+                }
+
                 if (socket.data.activeRoom) {
                     const roomCode = socket.data.activeRoom;
                     const redisRoomKey = `game:room:${roomCode}`;

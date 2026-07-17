@@ -18,6 +18,16 @@ We are motivated to explore how voice can be turned into a core, compelling game
 6. As a user, I want the game to be fun and chaotic as I rush to say commands to the microphone
 7. As a user, I want my progress to be saved and be able to look up my match history
 
+# Tech Stack
+
+NoiseWar is built with a React and Vite frontend, an Express backend, and Redis for data storage. We chose React because it makes it easier to build reusable interface components such as the login page, lobby, navbar, and account page. Vite was used because it provides a fast development server and a simple setup for modern frontend development.
+
+Phaser is used for the main game because it is designed for browser-based 2D games and provides a scene system for separating parts of the game such as loading, menus, gameplay, and ending screens. Grid Engine is used together with Phaser because our game depends on tile-based movement, and it helps keep the player aligned to the maze grid.
+
+The backend is built with Express because it provides a lightweight way to create API routes for login, sign-up, profile data, and saved sabotage words. Socket.IO is used because NoiseWar needs real-time communication for room creation, room joining, game start events, sabotage events, and disconnect handling.
+
+Redis is used because it is fast and works well for temporary multiplayer data such as room codes, room states, socket IDs, and saved user data. Annyang is used for voice controls because it gives the browser a simple way to listen for spoken commands such as Up, Down, Left, Right, Stop, and Sabotage.
+
 # Features
 
 1.  Login System - COMPLETED
