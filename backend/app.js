@@ -195,7 +195,7 @@ const registerSocketHandlers = (io) => {
                 const redisRoomKey = `game:room:${roomCode}`;
 
                 await client.hSet(redisRoomKey, {
-                    phase: "lobby",
+                    phase: "lobby"
                 });
 
                 await client.expire(redisRoomKey, 7200);
@@ -302,23 +302,28 @@ const registerSocketHandlers = (io) => {
                         error: "Room is not yet full!"
                     });
                 }
+
+                //for testing
+                //const maze = generateMaze(9, 9)
+                const maze = generateMaze(17, 17)
                 
                 //for testing
                 //const duration = 0.25 * 60 * 1000;
-                const duration = 1 * 60 * 1000;
+                const duration = 2 * 60 * 1000;
                 const startedAt = Date.now();
                 const endsAt = startedAt + duration;
 
                 await client.hSet(redisRoomKey, {
                     phase: "playing",
                     startedAt: startedAt,
-                    endsAt: endsAt
+                    endsAt: endsAt,
                 });
 
                 io.to(roomCode).emit("game-started", {
                     roomCode,
                     startedAt,
-                    endsAt
+                    endsAt,
+                    maze
                 });
 
                 setTimeout(async () => {
@@ -526,5 +531,151 @@ const createSocketResponse = (callback) => {
 
     return () => {};
 };
+
+function generateMaze(width, height) {
+    const FLOOR_TILE = 226;
+    const WALL_TILE = 367;
+    const START_TILE = 529;
+    const END_TILE = 532;
+
+    if (width % 2 === 0) {
+        width--;
+    }
+
+    if (height % 2 === 0) {
+        height--;
+    }
+
+    const maze = {
+        mazeArray: Array.from({ length: height }, () => Array(width).fill(WALL_TILE)),
+        start: [1, 1],
+        end: [1, 1]
+    }
+
+    const mazeArray = maze.mazeArray;
+
+    const shuffle = (items) => {
+        for (let i = items.length - 1; i > 0; i--) {
+            const randomIndex = Math.floor(Math.random() * (i + 1));
+
+            [items[i], items[randomIndex]] = [
+                items[randomIndex],
+                items[i]
+            ];
+        }
+        return items;
+    };
+
+    const carve = (x, y) => {
+        mazeArray[y][x] = FLOOR_TILE;
+
+        const directions = shuffle([
+            { x: 0, y: -2 },
+            { x: 0, y: 2 },
+            { x: -2, y: 0 },
+            { x: 2, y: 0 }
+        ]);
+
+        for (const direction of directions) {
+            const nextX = x + direction.x;
+            const nextY = y + direction.y;
+
+            const insideMap =
+                nextX > 0 &&
+                nextX < width - 1 &&
+                nextY > 0 &&
+                nextY < height - 1;
+
+            if (!insideMap || mazeArray[nextY][nextX] !== WALL_TILE) {
+                continue;
+            }
+
+            const wallX = x + direction.x / 2;
+            const wallY = y + direction.y / 2;
+
+            mazeArray[wallY][wallX] = FLOOR_TILE;
+
+            carve(nextX, nextY);
+        }
+    };
+
+    carve(1, 1);
+
+    const start = { x: 1, y: 1 };
+    const queue = [
+        {
+            x: start.x,
+            y: start.y,
+            distance: 0
+        }
+    ];
+
+    const visited = Array.from(
+        { length: height },
+        () => Array(width).fill(Infinity)
+    );
+
+    visited[start.y][start.x] = 0;
+
+    let farthest = {
+        x: start.x,
+        y: start.y,
+        distance: 0
+    };
+
+    const directions = [
+        { x: 0, y: -1 }, // Up
+        { x: 0, y: 1 },  // Down
+        { x: -1, y: 0 }, // Left
+        { x: 1, y: 0 }   // Right
+    ];
+
+    while (queue.length > 0) {
+        const current = queue.shift();
+
+        if (!current) {
+            break;
+        }
+
+        const { x, y, distance } = current;
+
+        for (const direction of directions) {
+            const nextX = x + direction.x;
+            const nextY = y + direction.y;
+
+            const insideMap =
+                nextX > 0 &&
+                nextX < width - 1 &&
+                nextY > 0 &&
+                nextY < height - 1;
+
+            if (!insideMap || mazeArray[nextY][nextX] === WALL_TILE || visited[nextY][nextX] !== Infinity) {
+                continue;
+            }
+
+            const nextDistance = distance + 1;
+            visited[nextY][nextX] = nextDistance;
+
+            queue.push({
+                x: nextX,
+                y: nextY,
+                distance: nextDistance
+            });
+
+            if (nextDistance > farthest.distance) {
+                farthest = {
+                    x: nextX,
+                    y: nextY,
+                    distance: nextDistance
+                };
+            }
+        }
+    }
+    
+    mazeArray[farthest.y][farthest.x] = END_TILE
+    maze.end = [farthest.y, farthest.x]
+    mazeArray[1][1] = START_TILE
+    return maze;
+}
 
 module.exports = { app, registerSocketHandlers };

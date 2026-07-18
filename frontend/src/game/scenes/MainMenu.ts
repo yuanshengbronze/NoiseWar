@@ -19,6 +19,7 @@ export class MainMenu extends Scene
         socket.on("game-started", (data) => {
             this.registry.set("startedAt", data.startedAt);
             this.registry.set("endsAt", data.endsAt);
+            this.registry.set("maze", data.maze);
             this.changeScene();
         });
 

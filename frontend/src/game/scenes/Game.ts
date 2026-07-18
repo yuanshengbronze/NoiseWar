@@ -33,6 +33,7 @@ export class Game extends Scene
     {
         this.user = this.registry.get("user");
         this.roomCode = this.registry.get("roomCode");
+        this.direction = 0;
         
         //Player
         this.player = this.add.sprite(0, 0, 'foxy').setScale(0.65);
@@ -44,11 +45,47 @@ export class Game extends Scene
         this.cursors = this.input.keyboard!.createCursorKeys();
 
         //Tilemap
-        this.tilemap = this.make.tilemap({ 
-            key: "tilemap"
-        }); 
-        this.tilemap.addTilesetImage("cloud_tileset", "tiles"); 
-        this.tilemap.createLayer(0, "cloud_tileset", 0, 0); 
+        const TILE_SIZE = 16;
+        const WALL_TILE = 367;
+        const maze = this.registry.get("maze")
+        const mazeArray = maze.mazeArray;
+        const start = maze.start;
+        const end = maze.end;
+
+        this.tilemap = this.make.tilemap({
+            data: mazeArray,
+            tileWidth: TILE_SIZE,
+            tileHeight: TILE_SIZE
+        });
+
+        const tileset = this.tilemap.addTilesetImage(
+            "cloud_tileset",
+            "tiles",
+            TILE_SIZE,
+            TILE_SIZE
+        );
+
+        if (!tileset) {
+            throw new Error("Could not create tileset");
+        }
+
+        const layer = this.tilemap.createLayer(0, tileset, 0, 0);
+
+        if (!layer) {
+            throw new Error("Could not create tilemap layer");
+        }
+
+        layer.forEachTile((tile) => {
+            const isWall = tile.index === WALL_TILE;
+            const isStart = tile.x === start[1] && tile.y === start[0];
+            const isFinish = tile.x === end[1] && tile.y === end[0];
+
+            tile.properties = {
+                ge_collide: isWall,
+                start: isStart,
+                finish: isFinish
+            };
+        });
 
         //Grid Engine
         const gridEngineConfig = { 
@@ -56,11 +93,10 @@ export class Game extends Scene
                 { 
                 id: "player", 
                 sprite: this.player, 
-                startPosition: { x: 1, y: 13 }, 
+                startPosition: { x: 1, y: 1 }, 
                 speed: 5,
                 }, 
-            ],
-            collisionTilePropertyName: "collides" 
+            ]        
         }; 
         this.gridEngine.create(this.tilemap, gridEngineConfig);
 
@@ -68,7 +104,7 @@ export class Game extends Scene
         const mapWidth = this.tilemap.widthInPixels;
         const mapHeight = this.tilemap.heightInPixels;
         this.camera = this.cameras.main;
-        this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
+        this.cameras.main.setBounds(0, 0, mapWidth + 20, mapHeight);
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
         this.cameras.main.setZoom(4);        
         
@@ -122,7 +158,7 @@ export class Game extends Scene
             this.gridEngine.move("player", Direction.DOWN); 
         } 
 
-        /*CONTROLS FOR TESTING
+        //CONTROLS FOR TESTING
         if (this.cursors.left.isDown) { 
             this.gridEngine.move("player", Direction.LEFT); 
         } else if (this.cursors.right.isDown) { 
@@ -136,7 +172,6 @@ export class Game extends Scene
         if (this.cursors.shift.isDown) {
             this.sabotage();
         }
-        */
         
         if (this.cursors.space.isDown) {
             this.direction = 0;
