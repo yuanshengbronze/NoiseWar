@@ -3,6 +3,20 @@ import {Game} from './Game';
 import {socket} from "../../socket";
 import { EventBus } from '../EventBus';
 
+interface CommandSwitchCommands {
+    above: string;
+    down: string;
+    right: string;
+    left: string;
+}
+
+const DEFAULT_COMMAND_SWITCH_COMMANDS: CommandSwitchCommands = {
+    above: "north",
+    down: "south",
+    right: "east",
+    left: "west"
+};
+
 export class UI extends Scene
 {
     camera!: Phaser.Cameras.Scene2D.Camera;
@@ -10,7 +24,10 @@ export class UI extends Scene
     commandText!: Phaser.GameObjects.Text;
     commandTween?: Phaser.Tweens.Tween;
     sabotageText!: Phaser.GameObjects.Text;
+    commandSwitchText!: Phaser.GameObjects.Text;
     sabotageWord!: string;
+    commandSwitchWord!: string;
+    commandSwitchCommands!: CommandSwitchCommands;
     gameScene!: Game;
     cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     endsAt!: number;
@@ -63,6 +80,7 @@ export class UI extends Scene
 
         this.events.once(Scenes.Events.SHUTDOWN, () => {
             EventBus.off("command", this.displayCommand, this);
+            EventBus.off("command-switch-active", this.setCommandSwitchVisible, this);
         });
 
         this.sabotageWord = this.registry.get("sabotageWord") || "";
@@ -71,15 +89,28 @@ export class UI extends Scene
             : "SAY THE WORD ...";
 
         this.sabotageText = this.add.text(170, 300, `YOU ARE SABOTAGED! \n${sabotagePrompt}`, {
-            fontFamily: 'Arial', 
-            fontSize: 30, 
+            fontFamily: 'Arial',
+            fontSize: 30,
             color: '#ff0000',
             stroke: '#000000', 
             strokeThickness: 3,
             align: "center"
         }).setVisible(false);
 
+        this.commandSwitchWord = this.registry.get("commandSwitchWord") || "shuffle";
+        this.commandSwitchCommands = this.registry.get("commandSwitchCommands") || DEFAULT_COMMAND_SWITCH_COMMANDS;
+        this.commandSwitchText = this.add.text(170, 210, "", {
+            fontFamily: 'Arial',
+            fontSize: 22,
+            color: '#ffff00',
+            stroke: '#000000',
+            strokeThickness: 3,
+            align: "center"
+        }).setVisible(false);
+        this.updateCommandSwitchText();
+
         EventBus.on("command", this.displayCommand, this);
+        EventBus.on("command-switch-active", this.setCommandSwitchVisible, this);
 
         this.scene.launch('Game');
     }
@@ -92,6 +123,40 @@ export class UI extends Scene
             : "SPELL THE WORD ...";
 
         this.sabotageText.setText(`YOU ARE SABOTAGED! \n${sabotagePrompt}`);
+    }
+
+    setCommandSwitchSettings(word: string, commands: CommandSwitchCommands) {
+        this.commandSwitchWord = word.trim().toLowerCase() || "shuffle";
+        this.commandSwitchCommands = commands || DEFAULT_COMMAND_SWITCH_COMMANDS;
+        this.updateCommandSwitchText();
+    }
+
+    updateCommandSwitchText() {
+        if (!this.commandSwitchText) {
+            return;
+        }
+
+        this.commandSwitchText.setText(
+            "VOICE COMMANDS SWITCHED!\n" +
+            `ABOVE -> ${this.commandSwitchCommands.above.toUpperCase()}\n` +
+            `DOWN -> ${this.commandSwitchCommands.down.toUpperCase()}\n` +
+            `RIGHT -> ${this.commandSwitchCommands.right.toUpperCase()}\n` +
+            `LEFT -> ${this.commandSwitchCommands.left.toUpperCase()}`
+        );
+    }
+
+    matchesCommandSwitchWord(term: string) {
+        const targetWord = this.commandSwitchWord?.trim().toLowerCase();
+
+        if (!targetWord) {
+            return false;
+        }
+
+        return term.trim().toLowerCase() === targetWord;
+    }
+
+    setCommandSwitchVisible(data: { active: boolean }) {
+        this.commandSwitchText.setVisible(data.active);
     }
 
     matchesSabotageWord(term: string) {

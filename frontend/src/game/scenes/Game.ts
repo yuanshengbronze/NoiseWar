@@ -114,7 +114,14 @@ export class Game extends Scene
 
         //Socket Events
         socket.on("receive-sabotage", (data = {}) => {
-            this.receiveSabotage(data.word);
+            const { type = "pause", word = "" } = data as { type?: string; word?: string };
+
+            if (type === "command-switch") {
+                EventBus.emit("command-switch-sabotage-received");
+                return;
+            }
+
+            this.receiveSabotage(word);
         });
 
         this.events.once(Scenes.Events.SHUTDOWN, () => {
@@ -173,10 +180,6 @@ export class Game extends Scene
             this.sabotage();
         }
         
-        if (this.cursors.space.isDown) {
-            this.direction = 0;
-        }
-
         // 2. ANIMATION
         const isMoving = this.gridEngine.isMoving("player");
         const facingDirection = this.gridEngine.getFacingDirection("player");
@@ -248,6 +251,16 @@ export class Game extends Scene
             roomCode: this.roomCode,
             type: "pause",
             word: sabotageWord
+        })
+    }
+
+    commandSwitchSabotage() {
+        const commandSwitchWord = this.registry.get("commandSwitchWord") || "";
+
+        socket.emit("send-sabotage", {
+            roomCode: this.roomCode,
+            type: "command-switch",
+            word: commandSwitchWord
         })
     }
 

@@ -5,7 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const client = require("./redisClient");
 const { HASH_PREFIX, hashPassword, normalizeCredentials, verifyPassword } = require("./auth");
-const { normalizeSabotageWords } = require("./sabotageWords");
+const { normalizeSabotageSettings } = require("./sabotageWords");
  
 const app = express();
 app.use(express.json());
@@ -23,6 +23,20 @@ app.use(cors({
 
 const getSabotageWordsKey = (username) => {
     return `user:${encodeURIComponent(username)}:sabotageWords`;
+};
+
+const parseSavedSabotageSettings = (savedWords) => {
+    if (!savedWords) {
+        return normalizeSabotageSettings();
+    }
+
+    const savedSettings = JSON.parse(savedWords);
+
+    if (Array.isArray(savedSettings)) {
+        return normalizeSabotageSettings({ sabotageWords: savedSettings });
+    }
+
+    return normalizeSabotageSettings(savedSettings);
 };
 
 const getActiveUserKey = (username) => {
@@ -118,10 +132,11 @@ app.get("/api/user/:username/profile", async (req, res) => {
         const { username } = req.params;
         const savedWords = await client.get(getSabotageWordsKey(username));
         const stats = await getUserStats(username);
+        const sabotageSettings = parseSavedSabotageSettings(savedWords);
 
         res.json({
             username,
-            sabotageWords: savedWords ? JSON.parse(savedWords) : [],
+            ...sabotageSettings,
             stats
         });
     } catch (error) {
@@ -133,14 +148,14 @@ app.get("/api/user/:username/profile", async (req, res) => {
 app.put("/api/user/:username/sabotage-words", async (req, res) => {
     try {
         const { username } = req.params;
-        const sabotageWords = normalizeSabotageWords(req.body.sabotageWords);
+        const settings = normalizeSabotageSettings(req.body);
 
         await client.set(
             getSabotageWordsKey(username),
-            JSON.stringify(sabotageWords)
+            JSON.stringify(settings)
         );
 
-        res.json({ success: true, sabotageWords });
+        res.json({ success: true, ...settings });
     } catch (error) {
         console.error("Failed to save sabotage words: ", error);
         res.status(500).json({ error: "Failed to save sabotage words." });
