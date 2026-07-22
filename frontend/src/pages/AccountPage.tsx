@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Avatar,
   Box,
@@ -38,8 +38,9 @@ function AccountPage({
   onCommandSwitchCommandsChange,
 }: AccountPageProps) {
   const [newWord, setNewWord] = useState("");
-  const [newCommandSwitchCommands, setNewCommandSwitchCommands] =
-    useState(commandSwitchCommands);
+  const [newCommandSwitchCommands, setNewCommandSwitchCommands] = useState(
+    commandSwitchCommands,
+  );
   const [wordError, setWordError] = useState("");
   const [commandSwitchCommandErrors, setCommandSwitchCommandErrors] = useState<
     Partial<Record<keyof CommandSwitchCommands, string>>
@@ -48,10 +49,6 @@ function AccountPage({
     matchStats.matchesPlayed === 0
       ? 0
       : Math.round((matchStats.wins / matchStats.matchesPlayed) * 100);
-
-  useEffect(() => {
-    setNewCommandSwitchCommands(commandSwitchCommands);
-  }, [commandSwitchCommands]);
 
   const addSabotageWord = () => {
     const cleanedWord = newWord.trim().toLowerCase();
@@ -93,9 +90,11 @@ function AccountPage({
 
     const nextErrors: Partial<Record<keyof CommandSwitchCommands, string>> = {};
 
-    (Object.entries(cleanedCommands) as Array<
-      [keyof CommandSwitchCommands, string]
-    >).forEach(([command, word]) => {
+    (
+      Object.entries(cleanedCommands) as Array<
+        [keyof CommandSwitchCommands, string]
+      >
+    ).forEach(([command, word]) => {
       if (!word) {
         nextErrors[command] = "Required.";
       } else if (!/^[a-z]+$/.test(word)) {
@@ -133,7 +132,8 @@ function AccountPage({
         sx={{
           width: "min(920px, 100%)",
           borderRadius: 2,
-          overflow: "hidden",
+          overflow: "hidden auto",
+          maxHeight: "calc(100vh - 100px)",
           bgcolor: "rgba(255,255,255,0.95)",
         }}
       >
@@ -204,7 +204,9 @@ function AccountPage({
               The first word in this list is currently used as the escape word.
             </Typography>
 
-            <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start", mb: 2 }}>
+            <Box
+              sx={{ display: "flex", gap: 1, alignItems: "flex-start", mb: 2 }}
+            >
               <TextField
                 size="small"
                 label="New word"
@@ -260,7 +262,8 @@ function AccountPage({
               Command Switch Trigger
             </Typography>
             <Typography sx={{ color: "#4B5563", mb: 2 }}>
-              Saying "{commandSwitchWord}" makes the opponent use these movement commands for 10 seconds.
+              Saying "{commandSwitchWord}" makes the opponent use these movement
+              commands for 10 seconds.
             </Typography>
 
             <Box
