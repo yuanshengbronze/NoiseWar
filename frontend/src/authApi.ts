@@ -28,6 +28,7 @@ export const submitAuthRequest = async (
   return {
     ok: response.ok,
     username: username.trim(),
+    isNewUser: authMode === "signup" && response.ok,
     error: data.error || "Something went wrong",
   };
 };

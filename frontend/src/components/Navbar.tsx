@@ -1,43 +1,42 @@
 import { useState } from "react";
-import { AppBar, Box, Button, Menu, MenuItem, Toolbar, Typography } from "@mui/material";
+import {
+  AppBar,
+  Box,
+  Button,
+  Menu,
+  MenuItem,
+  Toolbar,
+  Typography,
+} from "@mui/material";
 
 interface NavbarProps {
   username: string;
   currentPage: "lobby" | "account";
   onNavigate: (page: "lobby" | "account") => void;
+  onOpenGuide: () => void;
   onLogout: () => void;
 }
 
-function Navbar({ username, currentPage, onNavigate, onLogout }: NavbarProps) {
+function Navbar({
+  username,
+  currentPage,
+  onNavigate,
+  onOpenGuide,
+  onLogout,
+}: NavbarProps) {
   const [accountMenuAnchor, setAccountMenuAnchor] = useState<null | HTMLElement>(
     null,
   );
-  const isAccountMenuOpen = Boolean(accountMenuAnchor);
 
-  const handleAccountMenuClose = () => {
-    setAccountMenuAnchor(null);
-  };
-
-  const handleLogoutClick = () => {
-    handleAccountMenuClose();
-    onLogout();
-  };
+  const closeAccountMenu = () => setAccountMenuAnchor(null);
 
   return (
-    <AppBar
-      position="static"
-      elevation={0}
-      sx={{
-        bgcolor: "#111827",
-        borderBottom: "1px solid rgba(255,255,255,0.12)",
-      }}
-    >
-      <Toolbar sx={{ gap: 2, justifyContent: "space-between" }}>
+    <AppBar position="static" sx={{ bgcolor: "#111827" }}>
+      <Toolbar sx={{ justifyContent: "space-between" }}>
         <Typography
           variant="h6"
           sx={{
-            color: "#fff",
-            fontFamily: "Arial Black",
+            fontWeight: 900,
             letterSpacing: 0,
             textTransform: "uppercase",
           }}
@@ -70,31 +69,48 @@ function Navbar({ username, currentPage, onNavigate, onLogout }: NavbarProps) {
           </Button>
           <Button
             variant="text"
+            onClick={onOpenGuide}
+            data-guide="guide-button"
+            sx={{
+              color: "#fff",
+              "&:hover": { bgcolor: "#374151" },
+            }}
+          >
+            Guide
+          </Button>
+
+          <Button
             onClick={(event) => setAccountMenuAnchor(event.currentTarget)}
             sx={{
-              color: "rgba(255,255,255,0.78)",
-              ml: 1,
-              maxWidth: 220,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              color: "#fff",
+              fontWeight: 800,
               textTransform: "none",
-              "&:hover": {
-                color: "#fff",
-                bgcolor: "rgba(255,255,255,0.08)",
-              },
+              "&:hover": { bgcolor: "#374151" },
             }}
           >
             {username}
           </Button>
           <Menu
             anchorEl={accountMenuAnchor}
-            open={isAccountMenuOpen}
-            onClose={handleAccountMenuClose}
-            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-            transformOrigin={{ vertical: "top", horizontal: "right" }}
+            open={Boolean(accountMenuAnchor)}
+            onClose={closeAccountMenu}
           >
-            <MenuItem onClick={handleLogoutClick}>Log Out</MenuItem>
+            <MenuItem
+              onClick={() => {
+                closeAccountMenu();
+                onNavigate("account");
+              }}
+            >
+              Profile
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                closeAccountMenu();
+                onLogout();
+              }}
+            >
+              Logout
+            </MenuItem>
           </Menu>
         </Box>
       </Toolbar>

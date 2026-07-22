@@ -8,6 +8,7 @@ import type { UI } from "../game/scenes/UI";
 import Lobby from "./Lobby";
 import Navbar from "../components/Navbar";
 import AccountPage from "./AccountPage";
+import UserGuide from "../components/UserGuide";
 import API_URL from "../config";
 import { socket } from "../socket";
 import { IconButton } from "@mui/material";
@@ -73,6 +74,9 @@ function GamePage() {
     "lobby" | "account" | "room"
   >("lobby");
   const [playerCount, setPlayerCount] = useState<number>(1);
+  const [guideMode, setGuideMode] = useState<"mandatory" | "optional" | null>(
+    null,
+  );
   const [sabotageWords, setSabotageWords] = useState<string[]>([]);
   const [commandSwitchWord, setCommandSwitchWord] = useState<string>("shuffle");
   const [commandSwitchCommands, setCommandSwitchCommands] =
@@ -150,7 +154,7 @@ function GamePage() {
     }
   };
 
-  const handleLoginCallback = async (username: string) => {
+  const handleLoginCallback = async (username: string, isNewUser = false) => {
     if (!socket.connected) {
       socket.connect();
     }
@@ -165,6 +169,11 @@ function GamePage() {
 
     setIsLoggedIn(true);
     setUser(username);
+    setGuideMode(isNewUser ? "mandatory" : null);
+  };
+
+  const closeGuide = () => {
+    setGuideMode(null);
   };
 
   const handleCreateRoom = () => {
@@ -556,9 +565,17 @@ function GamePage() {
           username={user}
           currentPage={currentPhase}
           onNavigate={setCurrentPhase}
+          onOpenGuide={() => setGuideMode("optional")}
           onLogout={handleLogout}
         />
       )}
+      <UserGuide
+        open={guideMode !== null}
+        mode={guideMode ?? "optional"}
+        currentPage={currentPhase}
+        onNavigate={setCurrentPhase}
+        onClose={closeGuide}
+      />
 
       {currentPhase === "account" && user && (
         <AccountPage
