@@ -80,6 +80,18 @@ function AccountPage({
     onSabotageWordsChange(nextWords);
   };
 
+  const selectSabotageWord = (wordToSelect: string) => {
+    if (sabotageWords[0] === wordToSelect) {
+      return;
+    }
+
+    const nextWords = [
+      wordToSelect,
+      ...sabotageWords.filter((word) => word !== wordToSelect),
+    ];
+    onSabotageWordsChange(nextWords);
+  };
+
   const saveCommandSwitchCommands = () => {
     const cleanedCommands = Object.fromEntries(
       Object.entries(newCommandSwitchCommands).map(([command, word]) => [
@@ -246,6 +258,8 @@ function AccountPage({
                     key={word}
                     label={index === 0 ? `${word} (current)` : word}
                     color={index === 0 ? "primary" : "default"}
+                    clickable={index !== 0}
+                    onClick={() => selectSabotageWord(word)}
                     onDelete={() => removeSabotageWord(word)}
                   />
                 ))}
