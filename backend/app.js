@@ -5,7 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const client = require("./redisClient");
 const { HASH_PREFIX, hashPassword, normalizeCredentials, verifyPassword } = require("./auth");
-const { normalizeSabotageSettings } = require("./sabotageWords");
+const { normalizeSabotageSettings } = require("./sabotageWords"); 
 const app = express();
 app.use(express.json());
 const allowedOrigins = [
