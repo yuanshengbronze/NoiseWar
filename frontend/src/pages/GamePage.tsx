@@ -13,6 +13,19 @@ import { socket } from "../socket";
 import { IconButton } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
+export interface CommandSwitchCommands {
+  above: string;
+  down: string;
+  right: string;
+  left: string;
+}
+const DEFAULT_COMMAND_SWITCH_COMMANDS: CommandSwitchCommands = {
+  above: "north",
+  down: "south",
+  right: "east",
+  left: "west",
+};
+
 /// ==================== INTERFACES ================================================================
 interface CreateRoomResponse {
   success: boolean;
@@ -27,11 +40,15 @@ interface JoinRoomResponse {
 interface UserProfileResponse {
   username: string;
   sabotageWords: string[];
+  commandSwitchWord: string;
+  commandSwitchCommands: CommandSwitchCommands;
   stats: MatchStats;
 }
 interface SaveSabotageWordsResponse {
   success: boolean;
   sabotageWords: string[];
+  commandSwitchWord: string;
+  commandSwitchCommands: CommandSwitchCommands;
   error?: string;
 }
 interface RegisterActiveUserResponse {
@@ -57,6 +74,10 @@ function GamePage() {
   >("lobby");
   const [playerCount, setPlayerCount] = useState<number>(1);
   const [sabotageWords, setSabotageWords] = useState<string[]>([]);
+  const [commandSwitchWord, setCommandSwitchWord] = useState<string>("shuffle");
+  const [commandSwitchCommands, setCommandSwitchCommands] =
+    useState<CommandSwitchCommands>(DEFAULT_COMMAND_SWITCH_COMMANDS);
+  const [isCommandSwitchActive, setIsCommandSwitchActive] = useState(false);
   const [matchStats, setMatchStats] = useState<MatchStats>({
     matchesPlayed: 0,
     wins: 0,
@@ -64,7 +85,32 @@ function GamePage() {
   });
 
   const phaserRef = useRef<IRefPhaserGame | null>(null);
+  const commandSwitchTimeoutRef = useRef<number | null>(null);
+  const activeSabotageWordRef = useRef("");
+  const commandSwitchCommandsRef = useRef<CommandSwitchCommands>(
+    DEFAULT_COMMAND_SWITCH_COMMANDS,
+  );
+  const commandSwitchWordRef = useRef("shuffle");
+  const isCommandSwitchActiveRef = useRef(false);
   const activeSabotageWord = sabotageWords[0] || "";
+
+  useEffect(() => {
+    activeSabotageWordRef.current = activeSabotageWord;
+  }, [activeSabotageWord]);
+
+  useEffect(() => {
+    commandSwitchWordRef.current = commandSwitchWord;
+  }, [commandSwitchWord]);
+
+  useEffect(() => {
+    commandSwitchCommandsRef.current = commandSwitchCommands;
+  }, [commandSwitchCommands]);
+
+  useEffect(() => {
+    isCommandSwitchActiveRef.current = isCommandSwitchActive;
+    EventBus.emit("command-switch-active", { active: isCommandSwitchActive });
+  }, [isCommandSwitchActive]);
+
   useEffect(() => {
     if (!socket.connected) {
       socket.connect();
@@ -84,6 +130,24 @@ function GamePage() {
     setCurrentPhase("lobby");
     setPlayerCount(1);
     socket.disconnect();
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUser(null);
+    setRoomCode("");
+    setCurrentPhase("lobby");
+    setPlayerCount(1);
+    setIsCommandSwitchActive(false);
+
+    if (commandSwitchTimeoutRef.current) {
+      window.clearTimeout(commandSwitchTimeoutRef.current);
+      commandSwitchTimeoutRef.current = null;
+    }
+
+    if (socket.connected) {
+      socket.disconnect();
+    }
   };
 
   const handleLoginCallback = async (username: string) => {
@@ -150,22 +214,37 @@ function GamePage() {
       username: user,
     };
 
-    EventBus.once("phaser-cleanup-complete", () => {
+    let hasLeftRoom = false;
+    const finishLeavingRoom = () => {
+      if (hasLeftRoom) {
+        return;
+      }
+
+      hasLeftRoom = true;
       socket.emit("leave-room", payload);
       setRoomCode("");
+      setPlayerCount(1);
       setCurrentPhase("lobby");
-    });
+    };
+
+    EventBus.once("phaser-cleanup-complete", finishLeavingRoom);
 
     EventBus.emit("leaving-room", payload);
+    window.setTimeout(finishLeavingRoom, 100);
   };
 
-  const handleSabotageWordsChange = async (words: string[]) => {
+  const saveSabotageSettings = async (
+    words: string[],
+    nextCommandSwitchCommands = commandSwitchCommands,
+  ) => {
     if (!user) {
       return;
     }
 
     const previousWords = sabotageWords;
+    const previousCommandSwitchCommands = commandSwitchCommands;
     setSabotageWords(words);
+    setCommandSwitchCommands(nextCommandSwitchCommands);
 
     try {
       const response = await fetch(
@@ -173,7 +252,10 @@ function GamePage() {
         {
           method: "PUT",
           headers: { "Content-type": "application/json" },
-          body: JSON.stringify({ sabotageWords: words }),
+          body: JSON.stringify({
+            sabotageWords: words,
+            commandSwitchCommands: nextCommandSwitchCommands,
+          }),
         },
       );
 
@@ -184,11 +266,24 @@ function GamePage() {
       }
 
       setSabotageWords(data.sabotageWords);
+      setCommandSwitchWord(data.commandSwitchWord);
+      setCommandSwitchCommands(data.commandSwitchCommands);
     } catch (error) {
       console.error(error);
       setSabotageWords(previousWords);
+      setCommandSwitchCommands(previousCommandSwitchCommands);
       alert("Could not save sabotage words. Please try again.");
     }
+  };
+
+  const handleSabotageWordsChange = async (words: string[]) => {
+    await saveSabotageSettings(words);
+  };
+
+  const handleCommandSwitchCommandsChange = async (
+    commands: CommandSwitchCommands,
+  ) => {
+    await saveSabotageSettings(sabotageWords, commands);
   };
 
   const startBoot = () => {
@@ -276,10 +371,16 @@ function GamePage() {
         }
 
         setSabotageWords(data.sabotageWords);
+        setCommandSwitchWord(data.commandSwitchWord || "shuffle");
+        setCommandSwitchCommands(
+          data.commandSwitchCommands || DEFAULT_COMMAND_SWITCH_COMMANDS,
+        );
         setMatchStats(data.stats);
       } catch (error) {
         console.error(error);
         setSabotageWords([]);
+        setCommandSwitchWord("shuffle");
+        setCommandSwitchCommands(DEFAULT_COMMAND_SWITCH_COMMANDS);
       }
     };
 
@@ -288,30 +389,66 @@ function GamePage() {
 
   useEffect(() => {
     if (annyang.isSpeechRecognitionSupported()) {
+      const normalizeSpeechTerm = (term = "") => {
+        return term
+          .toLowerCase()
+          .trim()
+          .replace(/[.,!?;:]+$/g, "");
+      };
+      const runMovementCommand = (term = "") => {
+        const normalizedTerm = normalizeSpeechTerm(term);
+        const latestCommandSwitchCommands = commandSwitchCommandsRef.current;
+        const commandWords = isCommandSwitchActiveRef.current
+          ? {
+              up: normalizeSpeechTerm(latestCommandSwitchCommands.above),
+              down: normalizeSpeechTerm(latestCommandSwitchCommands.down),
+              left: normalizeSpeechTerm(latestCommandSwitchCommands.left),
+              right: normalizeSpeechTerm(latestCommandSwitchCommands.right),
+            }
+          : {
+              up: "above",
+              down: "down",
+              left: "left",
+              right: "right",
+            };
+
+        if (normalizedTerm === commandWords.up) {
+          control(1);
+        } else if (normalizedTerm === commandWords.down) {
+          control(2);
+        } else if (normalizedTerm === commandWords.left) {
+          control(3);
+        } else if (normalizedTerm === commandWords.right) {
+          control(4);
+        }
+      };
+
+      const getGameScene = () => {
+        return phaserRef.current?.game?.scene.getScene("Game") as Game | undefined;
+      };
+
+      const getUIScene = () => {
+        return phaserRef.current?.game?.scene.getScene("UI") as UI | undefined;
+      };
+
       const control = (direction: integer) => {
-        if (phaserRef.current) {
-          const gameScene = phaserRef.current.scene as Game;
-          if (gameScene && gameScene.scene.key === "Game") {
-            gameScene.move(direction);
-          }
+        const gameScene = getGameScene();
+        if (gameScene?.scene.isActive()) {
+          gameScene.move(direction);
         }
       };
 
       const sabotage = () => {
-        if (phaserRef.current) {
-          const gameScene = phaserRef.current.scene as Game;
-          if (gameScene && gameScene.scene.key === "Game") {
-            gameScene.sabotage();
-          }
+        const gameScene = getGameScene();
+        if (gameScene?.scene.isActive()) {
+          gameScene.sabotage();
         }
       };
 
-      const stopSabotage = () => {
-        if (phaserRef.current) {
-          const UIScene = phaserRef.current.scene?.scene.get("UI") as UI;
-          if (UIScene) {
-            UIScene.stopSabotage();
-          }
+      const triggerCommandSwitchSabotage = () => {
+        const gameScene = getGameScene();
+        if (gameScene?.scene.isActive()) {
+          gameScene.commandSwitchSabotage();
         }
       };
 
@@ -320,7 +457,7 @@ function GamePage() {
         | {
             regexp: RegExp;
             callback: (term?: string) => void;
-          };
+      };
 
       const commands: Record<string, AnnyangCommand> = {
         stop: {
@@ -329,77 +466,80 @@ function GamePage() {
             control(0);
           },
         },
-
-        above: {
-          regexp: /^above\s*[.!?]?$/i,
-          callback: () => {
-            control(1);
-          },
-        },
-
-        down: {
-          regexp: /^down\s*[.!?]?$/i,
-          callback: () => {
-            control(2);
-          },
-        },
-
-        left: {
-          regexp: /^left\s*[.!?]?$/i,
-          callback: () => {
-            control(3);
-          },
-        },
-
-        right: {
-          regexp: /^right\s*[.!?]?$/i,
-          callback: () => {
-            control(4);
-          },
-        },
-
         sabotage: {
           regexp: /^sabotage\s*[.!?]?$/i,
           callback: sabotage,
         },
 
         "*term": (term = "") => {
-          const normalizedTerm = term
-            .toLowerCase()
-            .trim()
-            .replace(/[.,!?;:]+$/g, "");
+          const normalizedTerm = normalizeSpeechTerm(term);
 
-          const UIScene = phaserRef.current?.scene?.scene.get("UI") as UI;
+          const UIScene = getUIScene();
+
+          runMovementCommand(normalizedTerm);
 
           if (UIScene?.matchesSabotageWord(normalizedTerm)) {
             UIScene.stopSabotage();
           }
+
+          if (UIScene?.matchesCommandSwitchWord(normalizedTerm)) {
+            triggerCommandSwitchSabotage();
+          }
         },
       };
 
-      if (activeSabotageWord) {
-        commands[activeSabotageWord] = stopSabotage;
-      }
-
-      annyang.addCommands(commands);
-      annyang.addCallback("resultMatch", (userSaid) => {
+      annyang.addCommands(commands, true);
+      const removeResultMatchCallback = annyang.addCallback("resultMatch", (userSaid) => {
         console.log(userSaid);
         EventBus.emit("command", {
           command: userSaid,
         });
       });
 
-      annyang.start();
+      annyang.start({ autoRestart: true, continuous: true });
       console.log("voice recognition started");
 
       return () => {
+        removeResultMatchCallback();
         annyang.removeCommands();
         annyang.abort();
       };
     } else {
       console.log("voice recognition not supported");
     }
-  }, [activeSabotageWord]);
+  }, []);
+
+  useEffect(() => {
+    const handleCommandSwitchSabotageReceived = () => {
+      setIsCommandSwitchActive(true);
+
+      if (commandSwitchTimeoutRef.current) {
+        window.clearTimeout(commandSwitchTimeoutRef.current);
+      }
+
+      commandSwitchTimeoutRef.current = window.setTimeout(() => {
+        EventBus.emit("command-switch-active", { active: false });
+        commandSwitchTimeoutRef.current = null;
+      }, 10000);
+    };
+
+    EventBus.on(
+      "command-switch-sabotage-received",
+      handleCommandSwitchSabotageReceived,
+    );
+
+    return () => {
+      EventBus.off(
+        "command-switch-sabotage-received",
+        handleCommandSwitchSabotageReceived,
+      );
+
+      if (commandSwitchTimeoutRef.current) {
+        window.clearTimeout(commandSwitchTimeoutRef.current);
+        commandSwitchTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   if (!isLoggedIn) {
     return <Login loginSuccess={handleLoginCallback} />;
@@ -416,6 +556,7 @@ function GamePage() {
           username={user}
           currentPage={currentPhase}
           onNavigate={setCurrentPhase}
+          onLogout={handleLogout}
         />
       )}
 
@@ -425,6 +566,9 @@ function GamePage() {
           sabotageWords={sabotageWords}
           matchStats={matchStats}
           onSabotageWordsChange={handleSabotageWordsChange}
+          commandSwitchWord={commandSwitchWord}
+          commandSwitchCommands={commandSwitchCommands}
+          onCommandSwitchCommandsChange={handleCommandSwitchCommandsChange}
         />
       )}
 
@@ -547,6 +691,8 @@ function GamePage() {
             user={user}
             roomCode={roomCode}
             sabotageWord={activeSabotageWord}
+            commandSwitchWord={commandSwitchWord}
+            commandSwitchCommands={commandSwitchCommands}
           />
         </div>
 

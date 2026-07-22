@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useLayoutEffect, useRef } from "react";
 import StartGame from "./game/main";
 import { EventBus } from "./game/EventBus";
+import type { CommandSwitchCommands } from "./pages/GamePage";
 
 export interface IRefPhaserGame {
   game: Phaser.Game | null;
@@ -12,10 +13,22 @@ interface IProps {
   user: string | null;
   roomCode: string;
   sabotageWord: string;
+  commandSwitchWord: string;
+  commandSwitchCommands: CommandSwitchCommands;
 }
 
 export const PhaserGame = forwardRef<IRefPhaserGame, IProps>(
-  function PhaserGame({ currentActiveScene, user, roomCode, sabotageWord }, ref) {
+  function PhaserGame(
+    {
+      currentActiveScene,
+      user,
+      roomCode,
+      sabotageWord,
+      commandSwitchWord,
+      commandSwitchCommands,
+    },
+    ref,
+  ) {
     const game = useRef<Phaser.Game | null>(null!);
 
     useLayoutEffect(() => {
@@ -73,6 +86,27 @@ export const PhaserGame = forwardRef<IRefPhaserGame, IProps>(
         game.current.registry.set("sabotageWord", sabotageWord);
       }
     }, [sabotageWord]);
+
+    useEffect(() => {
+      if (game.current) {
+        game.current.registry.set("commandSwitchWord", commandSwitchWord);
+        game.current.registry.set("commandSwitchCommands", commandSwitchCommands);
+
+        const uiScene = game.current.scene.getScene("UI") as
+          | (Phaser.Scene & {
+              setCommandSwitchSettings?: (
+                word: string,
+                commands: CommandSwitchCommands,
+              ) => void;
+            })
+          | null;
+
+        uiScene?.setCommandSwitchSettings?.(
+          commandSwitchWord,
+          commandSwitchCommands,
+        );
+      }
+    }, [commandSwitchWord, commandSwitchCommands]);
 
     return <div id="game-container"></div>;
   },

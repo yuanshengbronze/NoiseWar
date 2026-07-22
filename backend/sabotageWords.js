@@ -19,4 +19,39 @@ const normalizeSabotageWords = (words) => {
         });
 };
 
-module.exports = { normalizeSabotageWords };
+const DEFAULT_COMMAND_SWITCH_WORD = "shuffle";
+const DEFAULT_COMMAND_SWITCH_COMMANDS = {
+    above: "north",
+    down: "south",
+    right: "east",
+    left: "west"
+};
+
+const normalizeCommandSwitchCommands = (commands = {}) => {
+    return Object.fromEntries(
+        Object.entries(DEFAULT_COMMAND_SWITCH_COMMANDS).map(([command, defaultWord]) => {
+            const normalizedWords = normalizeSabotageWords([commands[command]]);
+
+            return [command, normalizedWords[0] || defaultWord];
+        })
+    );
+};
+
+const normalizeSabotageSettings = (settings = {}) => {
+    const sabotageWords = normalizeSabotageWords(settings.sabotageWords);
+    const commandSwitchCommands = normalizeCommandSwitchCommands(settings.commandSwitchCommands);
+
+    return {
+        sabotageWords,
+        commandSwitchWord: DEFAULT_COMMAND_SWITCH_WORD,
+        commandSwitchCommands
+    };
+};
+
+module.exports = {
+    DEFAULT_COMMAND_SWITCH_COMMANDS,
+    DEFAULT_COMMAND_SWITCH_WORD,
+    normalizeCommandSwitchCommands,
+    normalizeSabotageWords,
+    normalizeSabotageSettings
+};

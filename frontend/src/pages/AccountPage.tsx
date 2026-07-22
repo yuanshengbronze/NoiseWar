@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Avatar,
   Box,
@@ -9,7 +10,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useState } from "react";
+import type { CommandSwitchCommands } from "./GamePage";
 
 interface MatchStats {
   matchesPlayed: number;
@@ -20,18 +21,30 @@ interface MatchStats {
 interface AccountPageProps {
   username: string;
   sabotageWords: string[];
+  commandSwitchWord: string;
+  commandSwitchCommands: CommandSwitchCommands;
   matchStats: MatchStats;
   onSabotageWordsChange: (words: string[]) => void;
+  onCommandSwitchCommandsChange: (commands: CommandSwitchCommands) => void;
 }
 
 function AccountPage({
   username,
   sabotageWords,
+  commandSwitchWord,
+  commandSwitchCommands,
   matchStats,
   onSabotageWordsChange,
+  onCommandSwitchCommandsChange,
 }: AccountPageProps) {
   const [newWord, setNewWord] = useState("");
+  const [newCommandSwitchCommands, setNewCommandSwitchCommands] = useState(
+    commandSwitchCommands,
+  );
   const [wordError, setWordError] = useState("");
+  const [commandSwitchCommandErrors, setCommandSwitchCommandErrors] = useState<
+    Partial<Record<keyof CommandSwitchCommands, string>>
+  >({});
   const winRate =
     matchStats.matchesPlayed === 0
       ? 0
@@ -67,6 +80,38 @@ function AccountPage({
     onSabotageWordsChange(nextWords);
   };
 
+  const saveCommandSwitchCommands = () => {
+    const cleanedCommands = Object.fromEntries(
+      Object.entries(newCommandSwitchCommands).map(([command, word]) => [
+        command,
+        word.trim().toLowerCase(),
+      ]),
+    ) as CommandSwitchCommands;
+
+    const nextErrors: Partial<Record<keyof CommandSwitchCommands, string>> = {};
+
+    (
+      Object.entries(cleanedCommands) as Array<
+        [keyof CommandSwitchCommands, string]
+      >
+    ).forEach(([command, word]) => {
+      if (!word) {
+        nextErrors[command] = "Required.";
+      } else if (!/^[a-z]+$/.test(word)) {
+        nextErrors[command] = "Only letters are allowed.";
+      }
+    });
+
+    if (Object.keys(nextErrors).length > 0) {
+      setCommandSwitchCommandErrors(nextErrors);
+      return;
+    }
+
+    setNewCommandSwitchCommands(cleanedCommands);
+    setCommandSwitchCommandErrors({});
+    onCommandSwitchCommandsChange(cleanedCommands);
+  };
+
   return (
     <Box
       sx={{
@@ -87,7 +132,8 @@ function AccountPage({
         sx={{
           width: "min(920px, 100%)",
           borderRadius: 2,
-          overflow: "hidden",
+          overflow: "hidden auto",
+          maxHeight: "calc(100vh - 100px)",
           bgcolor: "rgba(255,255,255,0.95)",
         }}
       >
@@ -158,7 +204,9 @@ function AccountPage({
               The first word in this list is currently used as the escape word.
             </Typography>
 
-            <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start", mb: 2 }}>
+            <Box
+              sx={{ display: "flex", gap: 1, alignItems: "flex-start", mb: 2 }}
+            >
               <TextField
                 size="small"
                 label="New word"
@@ -207,6 +255,70 @@ function AccountPage({
                 No sabotage words saved yet.
               </Typography>
             )}
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+              Command Switch Trigger
+            </Typography>
+            <Typography sx={{ color: "#4B5563", mb: 2 }}>
+              Saying "{commandSwitchWord}" makes the opponent use these movement
+              commands for 10 seconds.
+            </Typography>
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+                gap: 2,
+                mb: 2,
+              }}
+            >
+              {(
+                [
+                  ["above", "Above"],
+                  ["down", "Down"],
+                  ["right", "Right"],
+                  ["left", "Left"],
+                ] as Array<[keyof CommandSwitchCommands, string]>
+              ).map(([command, label]) => (
+                <TextField
+                  key={command}
+                  size="small"
+                  label={`${label} word`}
+                  value={newCommandSwitchCommands[command]}
+                  error={Boolean(commandSwitchCommandErrors[command])}
+                  helperText={commandSwitchCommandErrors[command] || " "}
+                  onChange={(event) => {
+                    setNewCommandSwitchCommands({
+                      ...newCommandSwitchCommands,
+                      [command]: event.target.value,
+                    });
+                    setCommandSwitchCommandErrors({
+                      ...commandSwitchCommandErrors,
+                      [command]: "",
+                    });
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      saveCommandSwitchCommands();
+                    }
+                  }}
+                  fullWidth
+                />
+              ))}
+            </Box>
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <Button
+                variant="contained"
+                onClick={saveCommandSwitchCommands}
+                sx={{ height: 40 }}
+              >
+                Save
+              </Button>
+            </Box>
           </Box>
         </Box>
       </Paper>
