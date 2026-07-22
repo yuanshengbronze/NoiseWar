@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type AuthMode, getAuthHeadingAction, submitAuthRequest } from "../authApi";
 interface LoginProps {
-  loginSuccess: (username: string) => void | Promise<void>;
+  loginSuccess: (username: string, isNewUser?: boolean) => void | Promise<void>;
 }
 
 function Login({ loginSuccess }: LoginProps) {
@@ -31,7 +31,7 @@ function Login({ loginSuccess }: LoginProps) {
     }
 
     try {
-      await loginSuccess(result.username);
+      await loginSuccess(result.username, result.isNewUser);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Something went wrong",

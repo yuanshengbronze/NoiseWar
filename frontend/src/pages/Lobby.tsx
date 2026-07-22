@@ -54,6 +54,7 @@ function Lobby({
             variant="contained"
             fullWidth
             onClick={onCreateRoom}
+            data-guide="create-room"
             sx={{
               bgcolor: "#6366F1",
               "&:hover": { bgcolor: "#3b34b3" },
@@ -69,6 +70,7 @@ function Lobby({
             variant="contained"
             fullWidth
             onClick={() => setIsJoiningRoom(true)}
+            data-guide="enter-room"
             sx={{
               mt: 2,
               bgcolor: "#1619a6",

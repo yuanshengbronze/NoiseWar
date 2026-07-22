@@ -209,6 +209,7 @@ function AccountPage({
 
             <Divider sx={{ my: 3 }} />
 
+            <Box data-guide="sabotage-words">
             <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
               Sabotage Words
             </Typography>
@@ -270,8 +271,11 @@ function AccountPage({
               </Typography>
             )}
 
+            </Box>
+
             <Divider sx={{ my: 3 }} />
 
+            <Box data-guide="command-switch">
             <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
               Command Switch Trigger
             </Typography>
@@ -332,6 +336,7 @@ function AccountPage({
               >
                 Save
               </Button>
+            </Box>
             </Box>
           </Box>
         </Box>
