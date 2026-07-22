@@ -326,7 +326,7 @@ function GamePage() {
       playerCount: number;
       username: string;
     }) => {
-      if (playerCount == 2) {
+      if (response.playerCount === 2) {
         alert(`${response.username} joined the room`);
       }
       setPlayerCount(response.playerCount);

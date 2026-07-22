@@ -108,13 +108,6 @@ function UserGuide({
   }, [targetRect]);
 
   useEffect(() => {
-    if (!open) {
-      setActiveStep(0);
-      setTargetRect(null);
-    }
-  }, [open]);
-
-  useEffect(() => {
     if (!open || currentPage === step.page) {
       return;
     }
@@ -129,7 +122,6 @@ function UserGuide({
 
     const targetSelector = step.targetSelector;
     if (!targetSelector) {
-      setTargetRect(null);
       return;
     }
 
@@ -159,13 +151,23 @@ function UserGuide({
   }, [currentPage, open, step.page, step.targetSelector]);
 
   const goBack = () => setActiveStep((current) => Math.max(current - 1, 0));
+  const closeGuide = () => {
+    setActiveStep(0);
+    setTargetRect(null);
+    onClose();
+  };
   const goForward = () => {
     if (isLastStep) {
-      onClose();
+      closeGuide();
       return;
     }
 
+    setTargetRect(null);
     setActiveStep((current) => Math.min(current + 1, guideSteps.length - 1));
+  };
+  const selectStep = (index: number) => {
+    setTargetRect(null);
+    setActiveStep(index);
   };
 
   return (
@@ -200,7 +202,7 @@ function UserGuide({
 
       <Dialog
         open={open}
-        onClose={canClose ? onClose : undefined}
+        onClose={canClose ? closeGuide : undefined}
         maxWidth="sm"
         fullWidth
         slotProps={{
@@ -294,7 +296,7 @@ function UserGuide({
                 key={guideStep.title}
                 variant={index === activeStep ? "contained" : "outlined"}
                 size="small"
-                onClick={() => setActiveStep(index)}
+                onClick={() => selectStep(index)}
                 sx={{
                   minWidth: 40,
                   px: 1.25,
