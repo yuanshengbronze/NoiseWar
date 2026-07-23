@@ -21,7 +21,6 @@ interface MatchStats {
 interface AccountPageProps {
   username: string;
   sabotageWords: string[];
-  commandSwitchWord: string;
   commandSwitchCommands: CommandSwitchCommands;
   matchStats: MatchStats;
   onSabotageWordsChange: (words: string[]) => void;
@@ -31,7 +30,6 @@ interface AccountPageProps {
 function AccountPage({
   username,
   sabotageWords,
-  commandSwitchWord,
   commandSwitchCommands,
   matchStats,
   onSabotageWordsChange,
@@ -76,6 +74,10 @@ function AccountPage({
   };
 
   const removeSabotageWord = (wordToRemove: string) => {
+    if (sabotageWords.length <= 1) {
+      return;
+    }
+
     const nextWords = sabotageWords.filter((word) => word !== wordToRemove);
     onSabotageWordsChange(nextWords);
   };
@@ -210,133 +212,142 @@ function AccountPage({
             <Divider sx={{ my: 3 }} />
 
             <Box data-guide="sabotage-words">
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
-              Sabotage Words
-            </Typography>
-            <Typography sx={{ color: "#4B5563", mb: 2 }}>
-              The first word in this list is currently used as the escape word.
-            </Typography>
-
-            <Box
-              sx={{ display: "flex", gap: 1, alignItems: "flex-start", mb: 2 }}
-            >
-              <TextField
-                size="small"
-                label="New word"
-                value={newWord}
-                error={Boolean(wordError)}
-                helperText={wordError || " "}
-                onChange={(event) => {
-                  setNewWord(event.target.value);
-                  setWordError("");
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addSabotageWord();
-                  }
-                }}
-                fullWidth
-              />
-              <Button
-                variant="contained"
-                onClick={addSabotageWord}
-                sx={{ height: 40 }}
-              >
-                Add
-              </Button>
-            </Box>
-
-            {sabotageWords.length > 0 ? (
-              <Stack
-                direction="row"
-                spacing={1}
-                useFlexGap
-                sx={{ flexWrap: "wrap" }}
-              >
-                {sabotageWords.map((word, index) => (
-                  <Chip
-                    key={word}
-                    label={index === 0 ? `${word} (current)` : word}
-                    color={index === 0 ? "primary" : "default"}
-                    clickable={index !== 0}
-                    onClick={() => selectSabotageWord(word)}
-                    onDelete={() => removeSabotageWord(word)}
-                  />
-                ))}
-              </Stack>
-            ) : (
-              <Typography sx={{ color: "#6B7280" }}>
-                No sabotage words saved yet.
+              <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+                Sabotage Words
               </Typography>
-            )}
+              <Typography sx={{ color: "#4B5563", mb: 2 }}>
+                The first word in this list is currently used as the escape
+                word.
+              </Typography>
 
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 1,
+                  alignItems: "flex-start",
+                  mb: 2,
+                }}
+              >
+                <TextField
+                  size="small"
+                  label="New word"
+                  value={newWord}
+                  error={Boolean(wordError)}
+                  helperText={wordError || " "}
+                  onChange={(event) => {
+                    setNewWord(event.target.value);
+                    setWordError("");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addSabotageWord();
+                    }
+                  }}
+                  fullWidth
+                />
+                <Button
+                  variant="contained"
+                  onClick={addSabotageWord}
+                  sx={{ height: 40 }}
+                >
+                  Add
+                </Button>
+              </Box>
+
+              {sabotageWords.length > 0 ? (
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  useFlexGap
+                  sx={{ flexWrap: "wrap" }}
+                >
+                  {sabotageWords.map((word, index) => (
+                    <Chip
+                      key={word}
+                      label={index === 0 ? `${word} (current)` : word}
+                      color={index === 0 ? "primary" : "default"}
+                      clickable={index !== 0}
+                      onClick={() => selectSabotageWord(word)}
+                      onDelete={
+                        sabotageWords.length > 1
+                          ? () => removeSabotageWord(word)
+                          : undefined
+                      }
+                    />
+                  ))}
+                </Stack>
+              ) : (
+                <Typography sx={{ color: "#6B7280" }}>
+                  No sabotage words saved yet.
+                </Typography>
+              )}
             </Box>
 
             <Divider sx={{ my: 3 }} />
 
             <Box data-guide="command-switch">
-            <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-              Command Switch Trigger
-            </Typography>
-            <Typography sx={{ color: "#4B5563", mb: 2 }}>
-              Saying "{commandSwitchWord}" makes the opponent use these movement
-              commands for 10 seconds.
-            </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                Command Switch Trigger
+              </Typography>
+              <Typography sx={{ color: "#4B5563", mb: 2 }}>
+                Saying "switch" makes the opponent use these movement commands
+                for 10 seconds.
+              </Typography>
 
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
-                gap: 2,
-                mb: 2,
-              }}
-            >
-              {(
-                [
-                  ["above", "Above"],
-                  ["down", "Down"],
-                  ["right", "Right"],
-                  ["left", "Left"],
-                ] as Array<[keyof CommandSwitchCommands, string]>
-              ).map(([command, label]) => (
-                <TextField
-                  key={command}
-                  size="small"
-                  label={`${label} word`}
-                  value={newCommandSwitchCommands[command]}
-                  error={Boolean(commandSwitchCommandErrors[command])}
-                  helperText={commandSwitchCommandErrors[command] || " "}
-                  onChange={(event) => {
-                    setNewCommandSwitchCommands({
-                      ...newCommandSwitchCommands,
-                      [command]: event.target.value,
-                    });
-                    setCommandSwitchCommandErrors({
-                      ...commandSwitchCommandErrors,
-                      [command]: "",
-                    });
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      saveCommandSwitchCommands();
-                    }
-                  }}
-                  fullWidth
-                />
-              ))}
-            </Box>
-
-            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-              <Button
-                variant="contained"
-                onClick={saveCommandSwitchCommands}
-                sx={{ height: 40 }}
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+                  gap: 2,
+                  mb: 2,
+                }}
               >
-                Save
-              </Button>
-            </Box>
+                {(
+                  [
+                    ["above", "Above"],
+                    ["down", "Down"],
+                    ["right", "Right"],
+                    ["left", "Left"],
+                  ] as Array<[keyof CommandSwitchCommands, string]>
+                ).map(([command, label]) => (
+                  <TextField
+                    key={command}
+                    size="small"
+                    label={`${label} word`}
+                    value={newCommandSwitchCommands[command]}
+                    error={Boolean(commandSwitchCommandErrors[command])}
+                    helperText={commandSwitchCommandErrors[command] || " "}
+                    onChange={(event) => {
+                      setNewCommandSwitchCommands({
+                        ...newCommandSwitchCommands,
+                        [command]: event.target.value,
+                      });
+                      setCommandSwitchCommandErrors({
+                        ...commandSwitchCommandErrors,
+                        [command]: "",
+                      });
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        saveCommandSwitchCommands();
+                      }
+                    }}
+                    fullWidth
+                  />
+                ))}
+              </Box>
+
+              <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                <Button
+                  variant="contained"
+                  onClick={saveCommandSwitchCommands}
+                  sx={{ height: 40 }}
+                >
+                  Save
+                </Button>
+              </Box>
             </Box>
           </Box>
         </Box>

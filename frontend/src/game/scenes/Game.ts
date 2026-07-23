@@ -3,6 +3,24 @@ import { Scene, Scenes} from 'phaser';
 import { Direction, GridEngine } from 'grid-engine';
 import {socket} from '../../socket.ts';
 
+type SabotageType = "pause" | "command-switch";
+
+interface SabotageSuccessResponse {
+  success: true;
+  remainingUses: number;
+}
+
+interface SabotageFailureResponse {
+  success: false;
+  errorType: "limit" | "target-busy" | "validation" | "server";
+  error: string;
+  remainingUses?: number;
+}
+
+type SabotageResponse =
+  | SabotageSuccessResponse
+  | SabotageFailureResponse;
+    
 export class Game extends Scene
 {
     camera!: Phaser.Cameras.Scene2D.Camera;
@@ -114,14 +132,14 @@ export class Game extends Scene
 
         //Socket Events
         socket.on("receive-sabotage", (data = {}) => {
-            const { type = "pause", word = "" } = data as { type?: string; word?: string };
+            const { type, word = "" } = data as { type?: string; word?: string };
 
             if (type === "command-switch") {
                 EventBus.emit("command-switch-sabotage-received");
-                return;
             }
-
-            this.receiveSabotage(word);
+            else if (type === "pause") {
+                this.receiveSabotage(word);
+            }
         });
 
         this.events.once(Scenes.Events.SHUTDOWN, () => {
@@ -178,7 +196,7 @@ export class Game extends Scene
         } 
 
         if (this.cursors.shift.isDown) {
-            this.sabotage();
+            this.pauseSabotage();
         }
         */
        
@@ -250,24 +268,97 @@ export class Game extends Scene
         });
     }
 
-    sabotage() {
+    pauseSabotage() {
+        const type: SabotageType = "pause";
+
         const sabotageWord = this.registry.get("sabotageWord") || "";
 
-        socket.emit("send-sabotage", {
-            roomCode: this.roomCode,
-            type: "pause",
-            word: sabotageWord
-        })
+        socket.emit("send-sabotage",
+            {
+                roomCode: this.roomCode,
+                type,
+                word: sabotageWord,
+            },
+            (res: SabotageResponse) => {
+                if (res.success) {
+                    EventBus.emit("sabotage-uses-updated", {
+                        type,
+                        remainingUses: res.remainingUses,
+                    });
+                    return;
+                }
+
+                switch (res.errorType) {
+                    case "limit":
+                        EventBus.emit("show-warning", {
+                            message: "Pause unavailable — no uses remaining."
+                        });
+                        break;
+
+                    case "target-busy":
+                        EventBus.emit("show-warning", {
+                            message: "Opponent is already sabotaged!",
+                        });
+                        break;
+
+                    case "validation":
+                        console.warn(`Invalid sabotage request: ${res.error}`);
+                        break;
+
+                    case "server":
+                        EventBus.emit("show-warning", {
+                            message: "Sabotage failed — please try again.",
+                        });
+                        break;
+                }
+            },
+        );
     }
 
     commandSwitchSabotage() {
+        const type: SabotageType = "command-switch";
         const commandSwitchWord = this.registry.get("commandSwitchWord") || "";
 
-        socket.emit("send-sabotage", {
-            roomCode: this.roomCode,
-            type: "command-switch",
-            word: commandSwitchWord
-        })
+        socket.emit("send-sabotage",
+            {
+                roomCode: this.roomCode,
+                type,
+                word: commandSwitchWord,
+            },
+            (res: SabotageResponse) => {
+                if (res.success) {
+                    EventBus.emit("sabotage-uses-updated", {
+                        type,
+                        remainingUses: res.remainingUses,
+                    });
+                    return;
+                }
+
+                switch (res.errorType) {
+                    case "limit":
+                        EventBus.emit("show-warning", {
+                            message: "Command Switch unavailable — no uses remaining."
+                        });
+                        break;
+
+                    case "target-busy":
+                        EventBus.emit("show-warning", {
+                            message: "Opponent is already sabotaged",
+                        });
+                        break;
+
+                    case "validation":
+                        console.warn(`Invalid sabotage request: ${res.error}`);
+                        break;
+
+                    case "server":
+                        EventBus.emit("show-warning", {
+                            message: "Sabotage failed — please try again.",
+                        });
+                        break;
+                }
+            },
+        );
     }
 
     receiveSabotage(word: string) {

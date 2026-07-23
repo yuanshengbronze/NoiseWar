@@ -17,6 +17,7 @@ export class MainMenu extends Scene
     create ()
     {
         socket.on("game-started", (data) => {
+            EventBus.emit("sabotage-uses-reset");
             this.registry.set("startedAt", data.startedAt);
             this.registry.set("endsAt", data.endsAt);
             this.registry.set("maze", data.maze);
@@ -49,7 +50,7 @@ export class MainMenu extends Scene
                 { roomCode },
                 (response: { success: boolean; error?: string }) => {
                     if (!response.success) {
-                    alert(response.error || "Could not start game.");
+                        alert(response.error || "Could not start game.");
                     }
                 },
             );

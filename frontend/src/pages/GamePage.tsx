@@ -26,8 +26,9 @@ const DEFAULT_COMMAND_SWITCH_COMMANDS: CommandSwitchCommands = {
   right: "east",
   left: "west",
 };
+const COMMAND_SWITCH_DURATION_MS = 15_000;
 
-/// ==================== INTERFACES ================================================================
+/// ==================== TYPES AND INTERFACES ================================================================
 interface CreateRoomResponse {
   success: boolean;
   roomCode: string;
@@ -61,6 +62,12 @@ interface MatchStats {
   wins: number;
   losses: number;
 }
+type AnnyangCommand =
+  | ((term?: string) => void)
+  | {
+      regexp: RegExp;
+      callback: (term?: string) => void;
+    };
 interface GameClearResponse {
   winner: string;
   stats?: Record<string, MatchStats>;
@@ -77,8 +84,8 @@ function GamePage() {
   const [guideMode, setGuideMode] = useState<"mandatory" | "optional" | null>(
     null,
   );
-  const [sabotageWords, setSabotageWords] = useState<string[]>([]);
-  const [commandSwitchWord, setCommandSwitchWord] = useState<string>("shuffle");
+  const [sabotageWords, setSabotageWords] = useState<string[]>(["sabotage"]);
+  const commandSwitchWord = "switch";
   const [commandSwitchCommands, setCommandSwitchCommands] =
     useState<CommandSwitchCommands>(DEFAULT_COMMAND_SWITCH_COMMANDS);
   const [isCommandSwitchActive, setIsCommandSwitchActive] = useState(false);
@@ -94,7 +101,7 @@ function GamePage() {
   const commandSwitchCommandsRef = useRef<CommandSwitchCommands>(
     DEFAULT_COMMAND_SWITCH_COMMANDS,
   );
-  const commandSwitchWordRef = useRef("shuffle");
+  const commandSwitchWordRef = useRef("switch");
   const isCommandSwitchActiveRef = useRef(false);
   const activeSabotageWord = sabotageWords[0] || "";
 
@@ -112,7 +119,10 @@ function GamePage() {
 
   useEffect(() => {
     isCommandSwitchActiveRef.current = isCommandSwitchActive;
-    EventBus.emit("command-switch-active", { active: isCommandSwitchActive });
+    EventBus.emit("command-switch-active", {
+      active: isCommandSwitchActive,
+      durationMs: COMMAND_SWITCH_DURATION_MS,
+    });
   }, [isCommandSwitchActive]);
 
   useEffect(() => {
@@ -144,7 +154,7 @@ function GamePage() {
     setPlayerCount(1);
     setIsCommandSwitchActive(false);
 
-    if (commandSwitchTimeoutRef.current) {
+    if (commandSwitchTimeoutRef.current !== null) {
       window.clearTimeout(commandSwitchTimeoutRef.current);
       commandSwitchTimeoutRef.current = null;
     }
@@ -159,9 +169,11 @@ function GamePage() {
       socket.connect();
     }
 
-    const response = await new Promise<RegisterActiveUserResponse>((resolve) => {
-      socket.emit("register-active-user", { username }, resolve);
-    });
+    const response = await new Promise<RegisterActiveUserResponse>(
+      (resolve) => {
+        socket.emit("register-active-user", { username }, resolve);
+      },
+    );
 
     if (!response.success) {
       throw new Error(response.error || "Could not start your session.");
@@ -275,7 +287,6 @@ function GamePage() {
       }
 
       setSabotageWords(data.sabotageWords);
-      setCommandSwitchWord(data.commandSwitchWord);
       setCommandSwitchCommands(data.commandSwitchCommands);
     } catch (error) {
       console.error(error);
@@ -380,7 +391,6 @@ function GamePage() {
         }
 
         setSabotageWords(data.sabotageWords);
-        setCommandSwitchWord(data.commandSwitchWord || "shuffle");
         setCommandSwitchCommands(
           data.commandSwitchCommands || DEFAULT_COMMAND_SWITCH_COMMANDS,
         );
@@ -388,7 +398,6 @@ function GamePage() {
       } catch (error) {
         console.error(error);
         setSabotageWords([]);
-        setCommandSwitchWord("shuffle");
         setCommandSwitchCommands(DEFAULT_COMMAND_SWITCH_COMMANDS);
       }
     };
@@ -433,7 +442,9 @@ function GamePage() {
       };
 
       const getGameScene = () => {
-        return phaserRef.current?.game?.scene.getScene("Game") as Game | undefined;
+        return phaserRef.current?.game?.scene.getScene("Game") as
+          | Game
+          | undefined;
       };
 
       const getUIScene = () => {
@@ -447,10 +458,10 @@ function GamePage() {
         }
       };
 
-      const sabotage = () => {
+      const triggerPauseSabotage = () => {
         const gameScene = getGameScene();
         if (gameScene?.scene.isActive()) {
-          gameScene.sabotage();
+          gameScene.pauseSabotage();
         }
       };
 
@@ -461,13 +472,6 @@ function GamePage() {
         }
       };
 
-      type AnnyangCommand =
-        | ((term?: string) => void)
-        | {
-            regexp: RegExp;
-            callback: (term?: string) => void;
-      };
-
       const commands: Record<string, AnnyangCommand> = {
         stop: {
           regexp: /^stop\s*[.!?]?$/i,
@@ -475,9 +479,9 @@ function GamePage() {
             control(0);
           },
         },
-        sabotage: {
-          regexp: /^sabotage\s*[.!?]?$/i,
-          callback: sabotage,
+        pause: {
+          regexp: /^pause\s*[.!?]?$/i,
+          callback: triggerPauseSabotage,
         },
 
         "*term": (term = "") => {
@@ -498,12 +502,15 @@ function GamePage() {
       };
 
       annyang.addCommands(commands, true);
-      const removeResultMatchCallback = annyang.addCallback("resultMatch", (userSaid) => {
-        console.log(userSaid);
-        EventBus.emit("command", {
-          command: userSaid,
-        });
-      });
+      const removeResultMatchCallback = annyang.addCallback(
+        "resultMatch",
+        (userSaid) => {
+          console.log(userSaid);
+          EventBus.emit("command", {
+            command: userSaid,
+          });
+        },
+      );
 
       annyang.start({ autoRestart: true, continuous: true });
       console.log("voice recognition started");
@@ -520,16 +527,14 @@ function GamePage() {
 
   useEffect(() => {
     const handleCommandSwitchSabotageReceived = () => {
-      setIsCommandSwitchActive(true);
-
-      if (commandSwitchTimeoutRef.current) {
+      if (commandSwitchTimeoutRef.current !== null) {
         window.clearTimeout(commandSwitchTimeoutRef.current);
       }
-
+      setIsCommandSwitchActive(true);
       commandSwitchTimeoutRef.current = window.setTimeout(() => {
-        EventBus.emit("command-switch-active", { active: false });
+        setIsCommandSwitchActive(false);
         commandSwitchTimeoutRef.current = null;
-      }, 10000);
+      }, COMMAND_SWITCH_DURATION_MS);
     };
 
     EventBus.on(
@@ -543,10 +548,11 @@ function GamePage() {
         handleCommandSwitchSabotageReceived,
       );
 
-      if (commandSwitchTimeoutRef.current) {
+      if (commandSwitchTimeoutRef.current !== null) {
         window.clearTimeout(commandSwitchTimeoutRef.current);
         commandSwitchTimeoutRef.current = null;
       }
+      setIsCommandSwitchActive(false);
     };
   }, []);
 
@@ -583,7 +589,6 @@ function GamePage() {
           sabotageWords={sabotageWords}
           matchStats={matchStats}
           onSabotageWordsChange={handleSabotageWordsChange}
-          commandSwitchWord={commandSwitchWord}
           commandSwitchCommands={commandSwitchCommands}
           onCommandSwitchCommandsChange={handleCommandSwitchCommandsChange}
         />

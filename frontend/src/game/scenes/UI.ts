@@ -17,19 +17,44 @@ const DEFAULT_COMMAND_SWITCH_COMMANDS: CommandSwitchCommands = {
     left: "west"
 };
 
+type SabotageType = "pause" | "command-switch";
+
+interface WarningPayload {
+    message: string;
+}
+
+interface SabotageUsesUpdatedPayload {
+    type: SabotageType,
+    remainingUses: number
+}
+
 export class UI extends Scene
 {
-    camera!: Phaser.Cameras.Scene2D.Camera;
     timeText!: Phaser.GameObjects.Text;
+
     commandText!: Phaser.GameObjects.Text;
     commandTween?: Phaser.Tweens.Tween;
     sabotageText!: Phaser.GameObjects.Text;
+
+    COMMAND_SWITCH_DURATION_MS = 15_000;
+    commandSwitchEndsAt = 0;
+    commandSwitchWord = "switch";
     commandSwitchText!: Phaser.GameObjects.Text;
-    sabotageWord!: string;
-    commandSwitchWord!: string;
+    commandSwitchTimerText!: Phaser.GameObjects.Text;
+    commandSwitchTimer?: Phaser.Time.TimerEvent;
     commandSwitchCommands!: CommandSwitchCommands;
+    hasStartedCommandTextExit = false;
+
+    sabotageWord!: string;
+    sabotageUsesText!: Phaser.GameObjects.Text;
+    warningText!: Phaser.GameObjects.Text;
+    warningTween?: Phaser.Tweens.Tween;
+    sabotageUses: Record<SabotageType, number> = {
+        pause: 2,
+        "command-switch": 1,
+    };
+
     gameScene!: Game;
-    cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     endsAt!: number;
     timeOffset!: number;
 
@@ -40,13 +65,11 @@ export class UI extends Scene
 
     create ()
     {
-        this.camera = this.cameras.main;
         this.gameScene = this.scene.get('Game') as Game;
         const startedAt = this.registry.get("startedAt");
         this.endsAt = this.registry.get("endsAt");
 
         this.timeOffset = startedAt - Date.now();
-
         this.timeText = this.add.text(0, 0, "0:00", {
             fontFamily: 'Arial', 
             fontSize: 26, 
@@ -71,23 +94,12 @@ export class UI extends Scene
                 },
             }
         );
-
-        this.commandText
-        .setOrigin(0.5, 0)
-        .setDepth(9999)
-        .setScrollFactor(0)
-        .setAlpha(0);
-
-        this.events.once(Scenes.Events.SHUTDOWN, () => {
-            EventBus.off("command", this.displayCommand, this);
-            EventBus.off("command-switch-active", this.setCommandSwitchVisible, this);
-        });
+        this.commandText.setOrigin(0.5, 0).setDepth(9999).setScrollFactor(0).setAlpha(0);
 
         this.sabotageWord = this.registry.get("sabotageWord") || "";
         const sabotagePrompt = this.sabotageWord
             ? `SAY THE WORD '${this.sabotageWord.toUpperCase()}'`
             : "SAY THE WORD ...";
-
         this.sabotageText = this.add.text(170, 300, `YOU ARE SABOTAGED! \n${sabotagePrompt}`, {
             fontFamily: 'Arial',
             fontSize: 30,
@@ -97,9 +109,8 @@ export class UI extends Scene
             align: "center"
         }).setVisible(false);
 
-        this.commandSwitchWord = this.registry.get("commandSwitchWord") || "shuffle";
         this.commandSwitchCommands = this.registry.get("commandSwitchCommands") || DEFAULT_COMMAND_SWITCH_COMMANDS;
-        this.commandSwitchText = this.add.text(170, 210, "", {
+        this.commandSwitchText = this.add.text(this.scale.width / 2 - 155, 210, "", {
             fontFamily: 'Arial',
             fontSize: 22,
             color: '#ffff00',
@@ -107,10 +118,63 @@ export class UI extends Scene
             strokeThickness: 3,
             align: "center"
         }).setVisible(false);
+
+        this.commandSwitchTimerText = this.add.text(this.scale.width / 2, this.scale.height / 2, "", {
+            fontFamily: "Arial Black",
+            fontSize: 72,
+            color: "#ffffff",
+            stroke: "#000000",
+            strokeThickness: 4,
+            align: "center",
+        })
+        .setOrigin(0.5).setAlpha(0.26).setVisible(false).setDepth(900);
+
         this.updateCommandSwitchText();
 
+        this.sabotageUsesText = this.add.text(this.scale.width - 20, 20, "", 
+            {
+                fontFamily: "Arial",
+                fontSize: "20px",
+                color: "#ffffff",
+                align: "right",
+                backgroundColor: "#000000",
+                padding: {
+                x: 12,
+                y: 8,
+            },
+        })
+        .setOrigin(1, 0).setScrollFactor(0).setDepth(1000);
+
+        this.warningText = this.add
+            .text(this.scale.width / 2, this.scale.height / 2, "", {
+                fontFamily: "Arial Black",
+                fontSize: "28px",
+                color: "#ff3b30",
+                align: "center",
+                stroke: "#000000",
+                strokeThickness: 5,
+            })
+            .setOrigin(0.5).setScrollFactor(0).setDepth(1001).setVisible(false).setAlpha(1);
+
         EventBus.on("command", this.displayCommand, this);
-        EventBus.on("command-switch-active", this.setCommandSwitchVisible, this);
+        EventBus.on("sabotage-uses-updated", this.handleSabotageUsesUpdated);
+        EventBus.on("sabotage-uses-reset", this.handleSabotageUsesReset);
+        EventBus.on("command-switch-active", this.handleCommandSwitchActive);
+        EventBus.on("show-warning", this.handleShowWarning);
+
+        this.events.once(Scenes.Events.SHUTDOWN, () => {
+            EventBus.off("command", this.displayCommand, this);
+            EventBus.off("sabotage-uses-updated", this.handleSabotageUsesUpdated);
+            EventBus.off("sabotage-uses-reset", this.handleSabotageUsesReset);
+            EventBus.off("command-switch-active", this.handleCommandSwitchActive);
+            EventBus.off("show-warning", this.handleShowWarning);
+
+            this.warningTween?.stop();
+            this.warningTween = undefined;
+
+            this.tweens.killTweensOf(this.warningText);
+            this.stopCommandSwitchDisplay();
+        });
 
         this.scene.launch('Game');
     }
@@ -126,7 +190,7 @@ export class UI extends Scene
     }
 
     setCommandSwitchSettings(word: string, commands: CommandSwitchCommands) {
-        this.commandSwitchWord = word.trim().toLowerCase() || "shuffle";
+        this.commandSwitchWord = word.trim().toLowerCase() || "switch";
         this.commandSwitchCommands = commands || DEFAULT_COMMAND_SWITCH_COMMANDS;
         this.updateCommandSwitchText();
     }
@@ -153,10 +217,6 @@ export class UI extends Scene
         }
 
         return term.trim().toLowerCase() === targetWord;
-    }
-
-    setCommandSwitchVisible(data: { active: boolean }) {
-        this.commandSwitchText.setVisible(data.active);
     }
 
     matchesSabotageWord(term: string) {
@@ -186,23 +246,25 @@ export class UI extends Scene
         const seconds = totalSeconds % 60;
 
         this.timeText.setText(`${minutes}:${seconds.toString().padStart(2, "0")}`);
-
-        if (remainingMs <= 0) {
-            this.timeText.setText("0:00");
-        }
         
         if (this.gameScene) {
-            //SABOTAGE
-            if (this.gameScene.scene.isPaused()) {
-                this.sabotageText.setVisible(true);
-            } else {
-                this.sabotageText.setVisible(false);
-            }
+            this.sabotageText.setVisible(
+                this.gameScene.scene.isPaused(),
+            );
         }
     }
     
-    stopSabotage() {
+    stopSabotage(): void {
+        if (!this.gameScene.scene.isPaused()) {
+            return;
+        }
+
         this.gameScene.scene.resume();
+
+        socket.emit("sabotage-ended", {
+            roomCode: this.registry.get("roomCode"),
+            type: "pause",
+        });
     }
 
     timeOut() {
@@ -216,19 +278,171 @@ export class UI extends Scene
         this.commandText.setText(`${data.command}`);
 
         if (this.commandTween) {
-        this.commandTween.stop();
+            this.commandTween.stop();
         }
 
         this.commandText.setAlpha(1);
         this.commandText.setScale(1.15);
 
         this.commandTween = this.tweens.add({
-        targets: this.commandText,
-        alpha: 0,
-        scale: 1,
-        duration: 400,
-        delay: 500,
-        ease: "Power2",
+            targets: this.commandText,
+            alpha: 0,
+            scale: 1,
+            duration: 400,
+            delay: 500,
+            ease: "Power2",
         });
+    }
+    
+    handleSabotageUsesUpdated = (payload: SabotageUsesUpdatedPayload) => {
+        this.sabotageUses[payload.type] = payload.remainingUses;
+        this.updateSabotageUsesText();
+    };
+
+    handleShowWarning = ({message}: WarningPayload) => {
+        this.showWarning(message);
+    };
+
+    handleSabotageUsesReset = () => {
+        this.sabotageUses = {
+            pause: 2,
+            "command-switch": 1,
+        };
+        this.updateSabotageUsesText();
+    };
+
+    updateSabotageUsesText() {
+        if (!this.sabotageUsesText) {
+            return;
+        }
+
+        this.sabotageUsesText.setText([
+            "SABOTAGE USES",
+            `Pause: ${this.sabotageUses.pause}`,
+            `Command Switch: ${this.sabotageUses["command-switch"]}`,
+        ]);
+    }
+
+    showWarning(message: string): void {
+        if (!this.warningText) {
+            return;
+        }
+
+        this.warningTween?.stop();
+        this.tweens.killTweensOf(this.warningText);
+
+        this.warningText.setText(message).setVisible(true).setAlpha(1);
+
+        this.warningTween = this.tweens.add({
+            targets: this.warningText,
+            alpha: 0.2,
+            duration: 150,
+            yoyo: true,
+            repeat: 2,
+            hold: 100,
+
+            onComplete: () => {
+                this.warningText.setVisible(false).setAlpha(1); 
+                this.warningTween = undefined;
+            },
+        });
+    }
+
+    flashAndHideCommandSwitchText(): void {
+        this.tweens.killTweensOf(this.commandSwitchText);
+
+        this.tweens.add({
+            targets: this.commandSwitchText,
+            alpha: 0,
+            duration: 150,
+            yoyo: true,
+            repeat: 2,
+
+            onComplete: () => {
+            this.commandSwitchText
+                .setVisible(false)
+                .setAlpha(1);
+            },
+        });
+    }
+
+    handleCommandSwitchActive = ({active, durationMs = 15_000}: {active: boolean; durationMs?: number}): void => {
+        if (active) {
+            this.startCommandSwitchDisplay(durationMs);
+        } else {
+            this.stopCommandSwitchDisplay();
+        }
+    };
+
+    startCommandSwitchDisplay(durationMs = 15_000): void {
+        this.stopCommandSwitchDisplay();
+        this.COMMAND_SWITCH_DURATION_MS = durationMs;
+        this.commandSwitchEndsAt = this.time.now + durationMs;
+        this.hasStartedCommandTextExit = false;
+
+        this.updateCommandSwitchText();
+
+        this.commandSwitchText
+            .setVisible(true)
+            .setAlpha(1);
+
+        this.commandSwitchTimerText
+            .setVisible(true)
+            .setAlpha(0.18);
+
+        this.updateCommandSwitchDisplay();
+
+        this.commandSwitchTimer = this.time.addEvent({
+            delay: 100,
+            loop: true,
+            callback: this.updateCommandSwitchDisplay,
+            callbackScope: this,
+        });
+    }
+    getCommandSwitchTimeRemaining(): number {
+        return Math.max(0, this.commandSwitchEndsAt - this.time.now);
+    }
+    updateCommandSwitchDisplay(): void {
+        const remainingMs = this.getCommandSwitchTimeRemaining();
+        const remainingSeconds = Math.ceil(remainingMs / 1000);
+
+        this.commandSwitchTimerText.setText(
+            remainingSeconds > 0 ? remainingSeconds.toString() : "",
+        );
+
+        const halfwayPoint = this.COMMAND_SWITCH_DURATION_MS / 2;
+
+        if (
+            remainingMs <= halfwayPoint &&
+            !this.hasStartedCommandTextExit
+        ) {
+            this.hasStartedCommandTextExit = true;
+            this.flashAndHideCommandSwitchText();
+        }
+
+        if (remainingMs <= 0) {
+            this.stopCommandSwitchDisplay();
+        }
+    }
+    stopCommandSwitchDisplay(): void {
+        this.commandSwitchTimer?.remove(false);
+        this.commandSwitchTimer = undefined;
+
+        this.tweens.killTweensOf(this.commandSwitchText);
+
+        if (this.commandSwitchText) {
+            this.commandSwitchText
+            .setVisible(false)
+            .setAlpha(1);
+        }
+
+        if (this.commandSwitchTimerText) {
+            this.commandSwitchTimerText
+            .setVisible(false)
+            .setText("");
+        }
+
+        this.commandSwitchEndsAt = 0;
+        this.hasStartedCommandTextExit = false;
     }
 }

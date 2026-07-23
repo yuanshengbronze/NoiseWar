@@ -20,19 +20,49 @@ app.use(cors({
     credentials: true
 }));
 
+const SABOTAGE_LIMITS = {
+  "pause": 2,
+  "command-switch": 1,
+};
+
+const COMMAND_SWITCH_DURATION_MS = 15_000;
+
+const getActiveSabotageKey = (
+    redisRoomKey,
+    username,
+) => {
+    return `${redisRoomKey}:active-sabotage:${encodeURIComponent(username)}`;
+};
+
+const parsePlayers = (playerJsonList) => {
+    return playerJsonList
+        .map((playerJson) => {
+            try {
+                return JSON.parse(playerJson);
+            } catch {
+                return null;
+            }
+        })
+        .filter(Boolean);
+};
+
 const getSabotageWordsKey = (username) => {
     return `user:${encodeURIComponent(username)}:sabotageWords`;
 };
 
 const parseSavedSabotageSettings = (savedWords) => {
     if (!savedWords) {
-        return normalizeSabotageSettings();
+        return normalizeSabotageSettings({ sabotageWords: ["sabotage"] });
     }
-
     const savedSettings = JSON.parse(savedWords);
 
     if (Array.isArray(savedSettings)) {
-        return normalizeSabotageSettings({ sabotageWords: savedSettings });
+        const words = savedSettings.length > 0 ? savedSettings : ["sabotage"];
+        return normalizeSabotageSettings({ sabotageWords: words });
+    }
+
+    if (!savedSettings.sabotageWords || savedSettings.sabotageWords.length === 0) {
+        savedSettings.sabotageWords = ["sabotage"];
     }
 
     return normalizeSabotageSettings(savedSettings);
@@ -316,7 +346,22 @@ const registerSocketHandlers = (io) => {
                         error: "Room is not yet full!"
                     });
                 }
+                
+                await client.del(`${redisRoomKey}:sabotage-uses`);
 
+                const playerJsonList = await client.lRange(redisPlayersKey, 0, -1);
+
+                const players = parsePlayers(playerJsonList);
+
+                await Promise.all(
+                    players.map((player) => {
+                        const key = getActiveSabotageKey(
+                            redisRoomKey,
+                            player.username,
+                        );
+                        return client.del(key);
+                    }),
+                );
                 //for testing
                 //const maze = generateMaze(9, 9)
                 const maze = generateMaze(17, 17)
@@ -369,14 +414,170 @@ const registerSocketHandlers = (io) => {
             }
         });
 
-        socket.on("send-sabotage", (data = {}) => {
-            const { roomCode, type = "pause", word = "" } = data;
+        socket.on("send-sabotage", async (data = {}, callback) => {
+            const respond = createSocketResponse(callback);
 
-            if (!roomCode) {
-                return;
+            let activeSabotageKey = null;
+            let acquiredSabotageLock = false;
+
+            try {
+                const roomCode = data.roomCode?.toString().toUpperCase();
+                const username = socket.data.username;
+                const sabotageType = data.type;
+
+                if (!roomCode || !username) {
+                    return respond({
+                        success: false,
+                        errorType: "validation",
+                        error: "You are not currently inside a game.",
+                    });
+                }
+
+                if (sabotageType !== "pause" && sabotageType !== "command-switch") {
+                    return respond({
+                        success: false,
+                        errorType: "validation",
+                        error: "Invalid sabotage type.",
+                    });
+                }
+
+                const redisRoomKey = `game:room:${roomCode}`;
+                const redisPlayersKey = `${redisRoomKey}:players`;
+
+                const room = await client.hGetAll(redisRoomKey);
+
+                if (!room || room.phase !== "playing") {
+                    return respond({
+                        success: false,
+                        errorType: "validation",
+                        error: "Sabotage can only be used during a game.",
+                    });
+                }
+
+                const playerJsonList = await client.lRange(redisPlayersKey, 0, 1);
+
+                const players = parsePlayers(playerJsonList);
+
+                const attacker = players.find(
+                    (player) => player.username === username,
+                );
+
+                const opponent = players.find(
+                    (player) => player.username !== username,
+                );
+
+                if (!attacker || !opponent) {
+                    return respond({
+                        success: false,
+                        errorType: "validation",
+                        error: "Both players must be in the room.",
+                    });
+                }
+
+                activeSabotageKey = getActiveSabotageKey(redisRoomKey, opponent.username);
+
+                const remainingGameMs = Math.max(
+                    1_000,
+                    Number(room.endsAt) - Date.now(),
+                );
+
+                const lockDurationMs =
+                    sabotageType === "command-switch"
+                        ? Math.min(COMMAND_SWITCH_DURATION_MS, remainingGameMs)
+                        : remainingGameMs;
+
+                const lockResult = await client.set(
+                    activeSabotageKey,
+                    sabotageType,
+                    {
+                        NX: true,
+                        PX: lockDurationMs,
+                    },
+                );
+
+                if (lockResult !== "OK") {
+                    return respond({
+                        success: false,
+                        errorType: "target-busy",
+                        error: "Your opponent is already affected by a sabotage.",
+                    });
+                }
+                acquiredSabotageLock = true;
+
+                const usage = await consumeSabotageUse(
+                    redisRoomKey,
+                    username,
+                    sabotageType,
+                );
+
+                if (!usage.allowed) {
+                    await client.del(activeSabotageKey);
+                    acquiredSabotageLock = false;
+
+                    return respond({
+                        success: false,
+                        errorType: "limit",
+                        error:
+                            "You have used all attempts for this sabotage.",
+                        remainingUses: 0,
+                    });
+                }
+
+                const sabotageWord = data.word?.toString().trim() || "sabotage";
+
+                io.to(opponent.socketId).emit(
+                    "receive-sabotage",
+                    {
+                        type: sabotageType,
+                        word: sabotageWord,
+                        durationMs:
+                            sabotageType === "command-switch"
+                                ? COMMAND_SWITCH_DURATION_MS
+                                : undefined,
+                    },
+                );
+
+                return respond({
+                    success: true,
+                    remainingUses: usage.remaining,
+                });
+            } catch (error) {
+                console.error("send-sabotage failed:", error);
+                if (acquiredSabotageLock && activeSabotageKey) {
+                    await client.del(activeSabotageKey);
+                }
+
+                return respond({
+                    success: false,
+                    errorType: "server",
+                    error: "Could not send sabotage.",
+                });
             }
+        });
 
-            socket.to(roomCode).emit("receive-sabotage", { type, word });
+        socket.on("sabotage-ended", async (data = {}) => {
+            try {
+                const roomCode = data.roomCode?.toString().toUpperCase();
+
+                const username = socket.data.username;
+                const sabotageType = data.type;
+
+                if (!roomCode || !username || sabotageType !== "pause") {
+                    return;
+                }
+
+                const redisRoomKey = `game:room:${roomCode}`;
+
+                const activeSabotageKey = getActiveSabotageKey(redisRoomKey, username);
+
+                const activeSabotageType = await client.get(activeSabotageKey);
+
+                if (activeSabotageType === "pause") {
+                    await client.del(activeSabotageKey);
+                }
+            } catch (error) {
+                console.error("sabotage-ended failed:", error);
+            }
         });
 
         socket.on("player-finished", async (data = {}) => {
@@ -695,6 +896,41 @@ function generateMaze(width, height) {
     maze.end = [farthest.y, farthest.x]
     mazeArray[1][1] = START_TILE
     return maze;
+}
+
+async function consumeSabotageUse(
+  redisRoomKey,
+  username,
+  sabotageType,
+) {
+  const limit = SABOTAGE_LIMITS[sabotageType];
+
+  if (!limit) {
+    throw new Error(`Unknown sabotage type: ${sabotageType}`);
+  }
+
+  const usageKey = `${redisRoomKey}:sabotage-uses`;
+  const usageField = `${username}:${sabotageType}`;
+
+  const used = await client.hIncrBy(usageKey, usageField, 1);
+
+  if (used > limit) {
+    await client.hIncrBy(usageKey, usageField, -1);
+
+    return {
+      allowed: false,
+      used: limit,
+      remaining: 0,
+    };
+  }
+
+  await client.expire(usageKey, 7200);
+
+  return {
+    allowed: true,
+    used,
+    remaining: limit - used,
+  };
 }
 
 module.exports = { app, registerSocketHandlers };
