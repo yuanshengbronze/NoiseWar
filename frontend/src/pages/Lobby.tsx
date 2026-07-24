@@ -1,91 +1,78 @@
 import { useState } from "react";
+import { Box, Button, Card, CardContent, TextField, Typography } from "@mui/material";
 import {
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Button,
-  TextField,
-} from "@mui/material";
+  darkSecondaryButtonSx,
+  fieldSx,
+  panelSx,
+  primaryButtonSx,
+  uiColors,
+} from "../styles/ui";
 
 function Lobby({
   onCreateRoom,
   onJoinRoom,
-  roomCode,
 }: {
   onCreateRoom: () => void;
   onJoinRoom: (code: string) => void;
-  roomCode: string;
 }) {
-  const [joinCode, setJoinCode] = useState("");
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
 
   const handleJoinRoom = () => {
-    const code = joinCode.trim().toUpperCase();
+    const code = joinCode.trim();
 
     if (code) {
       onJoinRoom(code);
-      setJoinCode("");
     }
   };
 
-  const closeJoinRoom = () => {
-    setIsJoiningRoom(false);
-    setJoinCode("");
+  const actionButtonSx = {
+    ...primaryButtonSx,
+    fontFamily: "Arial Black",
+    py: 1.4,
   };
 
   return (
-    <Box
-      sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}
-    >
+    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
       <Card
         sx={{
-          maxWidth: 500,
-          minWidth: 400,
-          width: "100%",
-          mx: 2,
-          bgcolor: "#4F46E5",
-          color: "#fff",
-          borderRadius: 2,
+          ...panelSx,
+          width: "min(420px, calc(100vw - 32px))",
         }}
       >
-        <CardContent>
+        <CardContent sx={{ p: 3 }}>
           <Button
             variant="contained"
             fullWidth
             onClick={onCreateRoom}
-            sx={{
-              bgcolor: "#6366F1",
-              "&:hover": { bgcolor: "#3b34b3" },
-              fontWeight: "bold",
-              py: 1.5,
-              fontFamily: "Arial Black",
-            }}
+            data-guide="create-room"
+            sx={actionButtonSx}
           >
             Create Room
           </Button>
 
           <Button
-            variant="contained"
+            variant="outlined"
             fullWidth
             onClick={() => setIsJoiningRoom(true)}
+            data-guide="enter-room"
             sx={{
-              mt: 2,
-              bgcolor: "#1619a6",
-              "&:hover": { bgcolor: "#3b34b3" },
-              fontWeight: "bold",
-              py: 1.5,
-              fontFamily: "Arial Black",
+              ...actionButtonSx,
+              ...darkSecondaryButtonSx,
+              color: "#fff",
+              mt: 1.5,
             }}
           >
             Enter Room
           </Button>
 
           {isJoiningRoom && (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 2 }}>
+            <Box sx={{ mt: 2.5 }}>
+              <Typography sx={{ color: uiColors.muted, mb: 1 }}>
+                Room code
+              </Typography>
               <TextField
                 size="small"
-                label="Room code"
                 value={joinCode}
                 onChange={(event) => setJoinCode(event.target.value)}
                 onKeyDown={(event) => {
@@ -96,64 +83,22 @@ function Lobby({
                 }}
                 fullWidth
                 sx={{
-                  bgcolor: "#fff",
+                  ...fieldSx,
+                  bgcolor: uiColors.text,
                   borderRadius: 1,
                 }}
               />
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={handleJoinRoom}
-                  sx={{
-                    bgcolor: "#059669",
-                    "&:hover": { bgcolor: "#047857" },
-                    fontWeight: "bold",
-                    fontFamily: "Arial Black",
-                  }}
-                >
-                  Confirm
-                </Button>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={closeJoinRoom}
-                  sx={{
-                    bgcolor: "#DC2626",
-                    "&:hover": { bgcolor: "#B91C1C" },
-                    fontWeight: "bold",
-                    fontFamily: "Arial Black",
-                  }}
-                >
-                  Close
-                </Button>
-              </Box>
-            </Box>
-          )}
-
-          {roomCode && (
-            <Box
-              sx={{
-                mt: 3,
-                p: 2,
-                bgcolor: "#6366F1",
-                borderRadius: 1,
-                border: "1px dashed #000000",
-                textAlign: "center",
-                position: "relative",
-              }}
-            >
-              <Typography
-                variant="caption"
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={handleJoinRoom}
                 sx={{
-                  color: "rgba(255,255,255,0.8)",
-                  display: "block",
-                  mb: 0.5,
-                  textTransform: "uppercase",
+                  ...actionButtonSx,
+                  mt: 1.5,
                 }}
               >
-                Your Room Code
-              </Typography>
+                Join Room
+              </Button>
             </Box>
           )}
         </CardContent>

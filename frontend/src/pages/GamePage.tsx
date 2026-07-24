@@ -8,6 +8,8 @@ import type { UI } from "../game/scenes/UI";
 import Lobby from "./Lobby";
 import Navbar from "../components/Navbar";
 import AccountPage from "./AccountPage";
+import UserGuide from "../components/UserGuide";
+import { darkPageBackgroundImage } from "../styles/ui";
 import API_URL from "../config";
 import { socket } from "../socket";
 import { IconButton } from "@mui/material";
@@ -25,8 +27,9 @@ const DEFAULT_COMMAND_SWITCH_COMMANDS: CommandSwitchCommands = {
   right: "east",
   left: "west",
 };
+const COMMAND_SWITCH_DURATION_MS = 15_000;
 
-/// ==================== INTERFACES ================================================================
+/// ==================== TYPES AND INTERFACES ================================================================
 interface CreateRoomResponse {
   success: boolean;
   roomCode: string;
@@ -60,6 +63,12 @@ interface MatchStats {
   wins: number;
   losses: number;
 }
+type AnnyangCommand =
+  | ((term?: string) => void)
+  | {
+      regexp: RegExp;
+      callback: (term?: string) => void;
+    };
 interface GameClearResponse {
   winner: string;
   stats?: Record<string, MatchStats>;
@@ -73,8 +82,11 @@ function GamePage() {
     "lobby" | "account" | "room"
   >("lobby");
   const [playerCount, setPlayerCount] = useState<number>(1);
-  const [sabotageWords, setSabotageWords] = useState<string[]>([]);
-  const [commandSwitchWord, setCommandSwitchWord] = useState<string>("shuffle");
+  const [guideMode, setGuideMode] = useState<"mandatory" | "optional" | null>(
+    null,
+  );
+  const [sabotageWords, setSabotageWords] = useState<string[]>(["sabotage"]);
+  const commandSwitchWord = "switch";
   const [commandSwitchCommands, setCommandSwitchCommands] =
     useState<CommandSwitchCommands>(DEFAULT_COMMAND_SWITCH_COMMANDS);
   const [isCommandSwitchActive, setIsCommandSwitchActive] = useState(false);
@@ -90,7 +102,7 @@ function GamePage() {
   const commandSwitchCommandsRef = useRef<CommandSwitchCommands>(
     DEFAULT_COMMAND_SWITCH_COMMANDS,
   );
-  const commandSwitchWordRef = useRef("shuffle");
+  const commandSwitchWordRef = useRef("switch");
   const isCommandSwitchActiveRef = useRef(false);
   const activeSabotageWord = sabotageWords[0] || "";
 
@@ -108,7 +120,10 @@ function GamePage() {
 
   useEffect(() => {
     isCommandSwitchActiveRef.current = isCommandSwitchActive;
-    EventBus.emit("command-switch-active", { active: isCommandSwitchActive });
+    EventBus.emit("command-switch-active", {
+      active: isCommandSwitchActive,
+      durationMs: COMMAND_SWITCH_DURATION_MS,
+    });
   }, [isCommandSwitchActive]);
 
   useEffect(() => {
@@ -140,7 +155,7 @@ function GamePage() {
     setPlayerCount(1);
     setIsCommandSwitchActive(false);
 
-    if (commandSwitchTimeoutRef.current) {
+    if (commandSwitchTimeoutRef.current !== null) {
       window.clearTimeout(commandSwitchTimeoutRef.current);
       commandSwitchTimeoutRef.current = null;
     }
@@ -150,14 +165,16 @@ function GamePage() {
     }
   };
 
-  const handleLoginCallback = async (username: string) => {
+  const handleLoginCallback = async (username: string, isNewUser = false) => {
     if (!socket.connected) {
       socket.connect();
     }
 
-    const response = await new Promise<RegisterActiveUserResponse>((resolve) => {
-      socket.emit("register-active-user", { username }, resolve);
-    });
+    const response = await new Promise<RegisterActiveUserResponse>(
+      (resolve) => {
+        socket.emit("register-active-user", { username }, resolve);
+      },
+    );
 
     if (!response.success) {
       throw new Error(response.error || "Could not start your session.");
@@ -165,6 +182,11 @@ function GamePage() {
 
     setIsLoggedIn(true);
     setUser(username);
+    setGuideMode(isNewUser ? "mandatory" : null);
+  };
+
+  const closeGuide = () => {
+    setGuideMode(null);
   };
 
   const handleCreateRoom = () => {
@@ -266,7 +288,6 @@ function GamePage() {
       }
 
       setSabotageWords(data.sabotageWords);
-      setCommandSwitchWord(data.commandSwitchWord);
       setCommandSwitchCommands(data.commandSwitchCommands);
     } catch (error) {
       console.error(error);
@@ -317,7 +338,7 @@ function GamePage() {
       playerCount: number;
       username: string;
     }) => {
-      if (playerCount == 2) {
+      if (response.playerCount === 2) {
         alert(`${response.username} joined the room`);
       }
       setPlayerCount(response.playerCount);
@@ -371,7 +392,6 @@ function GamePage() {
         }
 
         setSabotageWords(data.sabotageWords);
-        setCommandSwitchWord(data.commandSwitchWord || "shuffle");
         setCommandSwitchCommands(
           data.commandSwitchCommands || DEFAULT_COMMAND_SWITCH_COMMANDS,
         );
@@ -379,7 +399,6 @@ function GamePage() {
       } catch (error) {
         console.error(error);
         setSabotageWords([]);
-        setCommandSwitchWord("shuffle");
         setCommandSwitchCommands(DEFAULT_COMMAND_SWITCH_COMMANDS);
       }
     };
@@ -424,7 +443,9 @@ function GamePage() {
       };
 
       const getGameScene = () => {
-        return phaserRef.current?.game?.scene.getScene("Game") as Game | undefined;
+        return phaserRef.current?.game?.scene.getScene("Game") as
+          | Game
+          | undefined;
       };
 
       const getUIScene = () => {
@@ -438,10 +459,10 @@ function GamePage() {
         }
       };
 
-      const sabotage = () => {
+      const triggerPauseSabotage = () => {
         const gameScene = getGameScene();
         if (gameScene?.scene.isActive()) {
-          gameScene.sabotage();
+          gameScene.pauseSabotage();
         }
       };
 
@@ -452,13 +473,6 @@ function GamePage() {
         }
       };
 
-      type AnnyangCommand =
-        | ((term?: string) => void)
-        | {
-            regexp: RegExp;
-            callback: (term?: string) => void;
-      };
-
       const commands: Record<string, AnnyangCommand> = {
         stop: {
           regexp: /^stop\s*[.!?]?$/i,
@@ -466,9 +480,9 @@ function GamePage() {
             control(0);
           },
         },
-        sabotage: {
-          regexp: /^sabotage\s*[.!?]?$/i,
-          callback: sabotage,
+        pause: {
+          regexp: /^pause\s*[.!?]?$/i,
+          callback: triggerPauseSabotage,
         },
 
         "*term": (term = "") => {
@@ -489,12 +503,15 @@ function GamePage() {
       };
 
       annyang.addCommands(commands, true);
-      const removeResultMatchCallback = annyang.addCallback("resultMatch", (userSaid) => {
-        console.log(userSaid);
-        EventBus.emit("command", {
-          command: userSaid,
-        });
-      });
+      const removeResultMatchCallback = annyang.addCallback(
+        "resultMatch",
+        (userSaid) => {
+          console.log(userSaid);
+          EventBus.emit("command", {
+            command: userSaid,
+          });
+        },
+      );
 
       annyang.start({ autoRestart: true, continuous: true });
       console.log("voice recognition started");
@@ -511,16 +528,14 @@ function GamePage() {
 
   useEffect(() => {
     const handleCommandSwitchSabotageReceived = () => {
-      setIsCommandSwitchActive(true);
-
-      if (commandSwitchTimeoutRef.current) {
+      if (commandSwitchTimeoutRef.current !== null) {
         window.clearTimeout(commandSwitchTimeoutRef.current);
       }
-
+      setIsCommandSwitchActive(true);
       commandSwitchTimeoutRef.current = window.setTimeout(() => {
-        EventBus.emit("command-switch-active", { active: false });
+        setIsCommandSwitchActive(false);
         commandSwitchTimeoutRef.current = null;
-      }, 10000);
+      }, COMMAND_SWITCH_DURATION_MS);
     };
 
     EventBus.on(
@@ -534,10 +549,11 @@ function GamePage() {
         handleCommandSwitchSabotageReceived,
       );
 
-      if (commandSwitchTimeoutRef.current) {
+      if (commandSwitchTimeoutRef.current !== null) {
         window.clearTimeout(commandSwitchTimeoutRef.current);
         commandSwitchTimeoutRef.current = null;
       }
+      setIsCommandSwitchActive(false);
     };
   }, []);
 
@@ -556,9 +572,17 @@ function GamePage() {
           username={user}
           currentPage={currentPhase}
           onNavigate={setCurrentPhase}
+          onOpenGuide={() => setGuideMode("optional")}
           onLogout={handleLogout}
         />
       )}
+      <UserGuide
+        open={guideMode !== null}
+        mode={guideMode ?? "optional"}
+        currentPage={currentPhase}
+        onNavigate={setCurrentPhase}
+        onClose={closeGuide}
+      />
 
       {currentPhase === "account" && user && (
         <AccountPage
@@ -576,7 +600,7 @@ function GamePage() {
       {currentPhase === "lobby" && (
         <div
           style={{
-            backgroundImage: `url("/assets/bg.png")`,
+            backgroundImage: darkPageBackgroundImage,
             backgroundSize: "cover",
             backgroundPosition: "center",
             height: "calc(100vh - 64px)",
@@ -603,7 +627,6 @@ function GamePage() {
           <Lobby
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleJoinRoom}
-            roomCode={roomCode}
           />
         </div>
       )}

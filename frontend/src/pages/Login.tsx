@@ -1,37 +1,77 @@
 import { useState } from "react";
-import { type AuthMode, getAuthHeadingAction, submitAuthRequest } from "../authApi";
+import {
+  Alert,
+  Box,
+  Button,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import {
+  darkPageBackgroundImage,
+  fieldSx,
+  darkSecondaryButtonSx,
+  panelSx,
+  primaryButtonSx,
+  uiColors,
+} from "../styles/ui";
+import {
+  type AuthMode,
+  getAuthHeadingAction,
+  submitAuthRequest,
+} from "../authApi";
+
 interface LoginProps {
   loginSuccess: (username: string) => void | Promise<void>;
 }
 
 function Login({ loginSuccess }: LoginProps) {
-  const style = {
-    backgroundImage: `url("/assets/bg.png")`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    height: "100vh",
-    width: "100%",
-  };
-
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [authMode, setAuthMode] = useState<AuthMode>("login");
 
   const isLogin = authMode === "login";
+  const usernameError = username.length > 0 && username.trim().length === 0;
+  const passwordError = password.length > 0 && password.trim().length === 0;
+  const authFieldSx = {
+    ...fieldSx,
+    "& .MuiFormLabel-root": {
+      color: uiColors.muted,
+    },
+    "& .MuiFormLabel-root.Mui-focused": {
+      color: uiColors.primary,
+    },
+    "& .MuiInputBase-input": {
+      color: uiColors.text,
+      fontWeight: 700,
+    },
+    "& .MuiOutlinedInput-root": {
+      bgcolor: "rgba(255,255,255,0.96)",
+      borderRadius: 1,
+    },
+    "& .MuiFormHelperText-root": {
+      color: uiColors.faint,
+    },
+    "& .MuiFormHelperText-root.Mui-error": {
+      color: uiColors.primaryHover,
+    },
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const result = await submitAuthRequest(authMode, username, password);
-
-    if (!result.ok) {
-      setErrorMessage(result.error);
-      return;
-    }
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage("");
 
     try {
-      await loginSuccess(result.username);
+      const result = await submitAuthRequest(authMode, username, password);
+
+      if (result.ok) {
+        await loginSuccess(result.username);
+        return;
+      }
+
+      setErrorMessage(result.error);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Something went wrong",
@@ -45,63 +85,110 @@ function Login({ loginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="page" style={style}>
-      <img
-        src="assets/logo.png"
-        style={{ width: "450px", height: "300px" }}
-      ></img>
-      <h3> Welcome to Noise War! Please {getAuthHeadingAction(authMode)}. </h3>
-      <div
-        className="login-form"
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-          justifyContent: "center",
+    <Box
+      sx={{
+        minHeight: "100vh",
+        width: "100%",
+        backgroundImage: darkPageBackgroundImage,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 2,
+        p: { xs: 2, md: 3 },
+        boxSizing: "border-box",
+      }}
+    >
+      <Box
+        component="img"
+        src="/assets/logo.png"
+        alt="NoiseWar"
+        sx={{
+          width: { xs: "min(450px, 86vw)", md: 450 },
+          height: { xs: "auto", md: 300 },
+          objectFit: "contain",
+        }}
+      />
+      <Paper
+        elevation={0}
+        sx={{
+          ...panelSx,
+          width: "min(420px, calc(100vw - 32px))",
+          p: { xs: 3, md: 4 },
         }}
       >
-        <form onSubmit={handleSubmit}>
-          <label>Username:</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <br />
+        <Stack spacing={2.5}>
+          <Box sx={{ textAlign: "center" }}>
+            <Typography
+              variant="h5"
+              sx={{ color: uiColors.text, fontWeight: 900, letterSpacing: 0 }}
+            >
+              {isLogin ? "Log in to NoiseWar" : "Create your account"}
+            </Typography>
+            <Typography sx={{ color: uiColors.muted, mt: 0.5 }}>
+              Please {getAuthHeadingAction(authMode)} to continue.
+            </Typography>
+          </Box>
 
-          <label>Password:</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <br />
+          {errorMessage && (
+            <Alert severity="error" sx={{ borderRadius: 1 }}>
+              {errorMessage}
+            </Alert>
+          )}
 
-          <button type="submit">{isLogin ? "Login" : "Sign Up"}</button>
-        </form>
-        <button
-          type="button"
-          onClick={() => switchMode(isLogin ? "signup" : "login")}
-          style={{
-            alignSelf: "center",
-            border: "none",
-            background: "transparent",
-            padding: "2px 4px",
-            color: "inherit",
-            textDecoration: "underline",
-            cursor: "pointer",
-            fontSize: "14px",
-          }}
-        >
-          {isLogin ? "Create an account" : "Already have an account? Login"}
-        </button>
-        {errorMessage && (
-          <p style={{ color: "red", justifyContent: "center" }}>
-            {errorMessage}
-          </p>
-        )}
-      </div>
-    </div>
+          <Box component="form" onSubmit={handleSubmit}>
+            <Stack spacing={2}>
+              <TextField
+                label="Username"
+                value={username}
+                onChange={(event) => {
+                  setUsername(event.target.value);
+                  setErrorMessage("");
+                }}
+                error={usernameError}
+                helperText={usernameError ? "Username cannot be blank." : " "}
+                autoComplete="username"
+                fullWidth
+                sx={authFieldSx}
+              />
+              <TextField
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setErrorMessage("");
+                }}
+                error={passwordError}
+                helperText={passwordError ? "Password cannot be blank." : " "}
+                autoComplete={isLogin ? "current-password" : "new-password"}
+                fullWidth
+                sx={authFieldSx}
+              />
+              <Button
+                type="submit"
+                variant="contained"
+                fullWidth
+                sx={{ ...primaryButtonSx, py: 1.35 }}
+              >
+                {isLogin ? "Log In" : "Sign Up"}
+              </Button>
+            </Stack>
+          </Box>
+
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={() => switchMode(isLogin ? "signup" : "login")}
+            sx={darkSecondaryButtonSx}
+          >
+            {isLogin ? "Need an account? Sign Up" : "Have an account? Log In"}
+          </Button>
+        </Stack>
+      </Paper>
+    </Box>
   );
 }
 

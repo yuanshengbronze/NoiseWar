@@ -11,6 +11,13 @@ import {
   Typography,
 } from "@mui/material";
 import type { CommandSwitchCommands } from "./GamePage";
+import {
+  blueContainedButtonSx,
+  darkPageBackgroundImage,
+  fieldSx,
+  logoChipSx,
+  uiColors,
+} from "../styles/ui";
 
 interface MatchStats {
   matchesPlayed: number;
@@ -31,7 +38,7 @@ interface AccountPageProps {
 function AccountPage({
   username,
   sabotageWords,
-  commandSwitchWord,
+  commandSwitchWord: _commandSwitchWord,
   commandSwitchCommands,
   matchStats,
   onSabotageWordsChange,
@@ -76,6 +83,10 @@ function AccountPage({
   };
 
   const removeSabotageWord = (wordToRemove: string) => {
+    if (sabotageWords.length <= 1) {
+      return;
+    }
+
     const nextWords = sabotageWords.filter((word) => word !== wordToRemove);
     onSabotageWordsChange(nextWords);
   };
@@ -129,7 +140,7 @@ function AccountPage({
       sx={{
         minHeight: "calc(100vh - 64px)",
         width: "100%",
-        backgroundImage: `url("/assets/bg.png")`,
+        backgroundImage: darkPageBackgroundImage,
         backgroundSize: "cover",
         backgroundPosition: "center",
         display: "flex",
@@ -157,8 +168,8 @@ function AccountPage({
         >
           <Box
             sx={{
-              bgcolor: "#111827",
-              color: "#fff",
+              bgcolor: "rgba(255,255,255,0.6)",
+              color: uiColors.text,
               p: 4,
               display: "flex",
               flexDirection: "column",
@@ -170,7 +181,7 @@ function AccountPage({
               sx={{
                 width: 120,
                 height: 120,
-                bgcolor: "#2563EB",
+                bgcolor: uiColors.primary,
                 color: "#fff",
                 fontSize: 48,
                 fontFamily: "Arial Black",
@@ -178,10 +189,10 @@ function AccountPage({
             >
               {username.charAt(0).toUpperCase()}
             </Avatar>
-            <Typography variant="h4" sx={{ color: "#fff", fontWeight: 800 }}>
+            <Typography variant="h4" sx={{ color: uiColors.text, fontWeight: 800 }}>
               {username}
             </Typography>
-            <Typography sx={{ color: "rgba(255,255,255,0.7)" }}>
+            <Typography sx={{ color: uiColors.muted }}>
               Default avatar
             </Typography>
           </Box>
@@ -209,129 +220,145 @@ function AccountPage({
 
             <Divider sx={{ my: 3 }} />
 
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
-              Sabotage Words
-            </Typography>
-            <Typography sx={{ color: "#4B5563", mb: 2 }}>
-              The first word in this list is currently used as the escape word.
-            </Typography>
-
-            <Box
-              sx={{ display: "flex", gap: 1, alignItems: "flex-start", mb: 2 }}
-            >
-              <TextField
-                size="small"
-                label="New word"
-                value={newWord}
-                error={Boolean(wordError)}
-                helperText={wordError || " "}
-                onChange={(event) => {
-                  setNewWord(event.target.value);
-                  setWordError("");
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addSabotageWord();
-                  }
-                }}
-                fullWidth
-              />
-              <Button
-                variant="contained"
-                onClick={addSabotageWord}
-                sx={{ height: 40 }}
-              >
-                Add
-              </Button>
-            </Box>
-
-            {sabotageWords.length > 0 ? (
-              <Stack
-                direction="row"
-                spacing={1}
-                useFlexGap
-                sx={{ flexWrap: "wrap" }}
-              >
-                {sabotageWords.map((word, index) => (
-                  <Chip
-                    key={word}
-                    label={index === 0 ? `${word} (current)` : word}
-                    color={index === 0 ? "primary" : "default"}
-                    clickable={index !== 0}
-                    onClick={() => selectSabotageWord(word)}
-                    onDelete={() => removeSabotageWord(word)}
-                  />
-                ))}
-              </Stack>
-            ) : (
-              <Typography sx={{ color: "#6B7280" }}>
-                No sabotage words saved yet.
+            <Box data-guide="sabotage-words">
+              <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+                Sabotage Words
               </Typography>
-            )}
+              <Typography sx={{ color: uiColors.muted, mb: 2 }}>
+                The first word in this list is currently used as the escape
+                word.
+              </Typography>
 
-            <Divider sx={{ my: 3 }} />
-
-            <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-              Command Switch Trigger
-            </Typography>
-            <Typography sx={{ color: "#4B5563", mb: 2 }}>
-              Saying "{commandSwitchWord}" makes the opponent use these movement
-              commands for 10 seconds.
-            </Typography>
-
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
-                gap: 2,
-                mb: 2,
-              }}
-            >
-              {(
-                [
-                  ["above", "Above"],
-                  ["down", "Down"],
-                  ["right", "Right"],
-                  ["left", "Left"],
-                ] as Array<[keyof CommandSwitchCommands, string]>
-              ).map(([command, label]) => (
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 1,
+                  alignItems: "flex-start",
+                  mb: 2,
+                }}
+              >
                 <TextField
-                  key={command}
                   size="small"
-                  label={`${label} word`}
-                  value={newCommandSwitchCommands[command]}
-                  error={Boolean(commandSwitchCommandErrors[command])}
-                  helperText={commandSwitchCommandErrors[command] || " "}
+                  label="New word"
+                  value={newWord}
+                  error={Boolean(wordError)}
+                  helperText={wordError || " "}
                   onChange={(event) => {
-                    setNewCommandSwitchCommands({
-                      ...newCommandSwitchCommands,
-                      [command]: event.target.value,
-                    });
-                    setCommandSwitchCommandErrors({
-                      ...commandSwitchCommandErrors,
-                      [command]: "",
-                    });
+                    setNewWord(event.target.value);
+                    setWordError("");
                   }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      saveCommandSwitchCommands();
+                      addSabotageWord();
                     }
                   }}
                   fullWidth
+                  sx={fieldSx}
                 />
-              ))}
+                <Button
+                  variant="contained"
+                  onClick={addSabotageWord}
+                  sx={{ ...blueContainedButtonSx, height: 40 }}
+                >
+                  Add
+                </Button>
+              </Box>
+
+              {sabotageWords.length > 0 ? (
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  useFlexGap
+                  sx={{ flexWrap: "wrap" }}
+                >
+                  {sabotageWords.map((word, index) => (
+                    <Chip
+                      key={word}
+                      label={index === 0 ? `${word} (current)` : word}
+                      clickable={index !== 0}
+                      onClick={() => selectSabotageWord(word)}
+                      onDelete={
+                        sabotageWords.length > 1
+                          ? () => removeSabotageWord(word)
+                          : undefined
+                      }
+                      sx={index === 0 ? logoChipSx : undefined}
+                    />
+                  ))}
+                </Stack>
+              ) : (
+                <Typography sx={{ color: "#71717A" }}>
+                  No sabotage words saved yet.
+                </Typography>
+              )}
             </Box>
 
-            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-              <Button
-                variant="contained"
-                onClick={saveCommandSwitchCommands}
-                sx={{ height: 40 }}
+            <Divider sx={{ my: 3 }} />
+
+            <Box data-guide="command-switch">
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                Command Switch Trigger
+              </Typography>
+              <Typography sx={{ color: uiColors.muted, mb: 2 }}>
+                Saying "switch" makes the opponent use these movement commands
+                for 10 seconds.
+              </Typography>
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+                  gap: 2,
+                  mb: 2,
+                }}
               >
-                Save
-              </Button>
+                {(
+                  [
+                    ["above", "Above"],
+                    ["down", "Down"],
+                    ["right", "Right"],
+                    ["left", "Left"],
+                  ] as Array<[keyof CommandSwitchCommands, string]>
+                ).map(([command, label]) => (
+                  <TextField
+                    key={command}
+                    size="small"
+                    label={`${label} word`}
+                    value={newCommandSwitchCommands[command]}
+                    error={Boolean(commandSwitchCommandErrors[command])}
+                    helperText={commandSwitchCommandErrors[command] || " "}
+                    onChange={(event) => {
+                      setNewCommandSwitchCommands({
+                        ...newCommandSwitchCommands,
+                        [command]: event.target.value,
+                      });
+                      setCommandSwitchCommandErrors({
+                        ...commandSwitchCommandErrors,
+                        [command]: "",
+                      });
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        saveCommandSwitchCommands();
+                      }
+                    }}
+                    fullWidth
+                    sx={fieldSx}
+                  />
+                ))}
+              </Box>
+
+              <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                <Button
+                  variant="contained"
+                  onClick={saveCommandSwitchCommands}
+                  sx={{ ...blueContainedButtonSx, height: 40 }}
+                >
+                  Save
+                </Button>
+              </Box>
             </Box>
           </Box>
         </Box>
@@ -344,14 +371,14 @@ function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <Box
       sx={{
-        border: "1px solid #E5E7EB",
+        border: `1px solid ${uiColors.border}`,
         borderRadius: 1,
         p: 2,
-        bgcolor: "#F9FAFB",
+        bgcolor: "#FAFAFA",
       }}
     >
-      <Typography sx={{ color: "#6B7280", fontSize: 14 }}>{label}</Typography>
-      <Typography variant="h4" sx={{ color: "#111827", fontWeight: 900 }}>
+      <Typography sx={{ color: uiColors.faint, fontSize: 14 }}>{label}</Typography>
+      <Typography variant="h4" sx={{ color: uiColors.text, fontWeight: 900 }}>
         {value}
       </Typography>
     </Box>

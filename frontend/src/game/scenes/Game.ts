@@ -250,7 +250,7 @@ export class Game extends Scene
         });
     }
 
-    sabotage() {
+    pauseSabotage() {
         const sabotageWord = this.registry.get("sabotageWord") || "";
 
         socket.emit("send-sabotage", {
@@ -258,6 +258,10 @@ export class Game extends Scene
             type: "pause",
             word: sabotageWord
         })
+    }
+
+    sabotage() {
+        this.pauseSabotage();
     }
 
     commandSwitchSabotage() {
