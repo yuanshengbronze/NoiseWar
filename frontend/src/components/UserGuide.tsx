@@ -51,26 +51,26 @@ const guideSteps: GuideStep[] = [
     tip: "Room codes must match exactly, so copy and paste when possible.",
   },
   {
-    title: "Set Sabotage Words",
+    title: "Set Sabotage Settings",
     icon: <SportsEsportsIcon />,
     page: "account",
     targetSelector: "[data-guide='sabotage-words']",
-    body: "Sabotage words live on the Account page. Add words here, click a saved chip to make it current, or remove words you no longer want.",
-    tip: "During a match, say sabotage to send your current sabotage word to the other player.",
+    body: "There are two types of sabotage: Pause and Command Switch. Sabotage settings live on the Account page. Add pause words here, click a saved chip to make it current, or remove words you no longer want.",
+    tip: "During a match, say pause to send your current pause word to the other player.",
   },
   {
-    title: "Customize Swapped Commands",
+    title: "Customize Command Switch",
     icon: <TuneIcon />,
     page: "account",
     targetSelector: "[data-guide='command-switch']",
-    body: "These words control the temporary command-switch effect. When this sabotage is active, the opponent must use the mapped words for movement.",
-    tip: "Short, distinct words are easiest for voice recognition.",
+    body: "These words control Command Switch. When this sabotage is active, the opponent must use the mapped words for movement.",
+    tip: "During a match, say switch to switch the other player's controls. Short, distinct words are easiest for voice recognition.",
   },
   {
     title: "Use Voice Controls",
     icon: <MicIcon />,
     page: "lobby",
-    body: "In a match, say stop, above, down, left, or right to move through the maze. Your browser may ask for microphone permission first.",
+    body: "In a match, say stop, above, down, left, or right to move through the maze. Press space to accurately stop. Your browser may ask for microphone permission first.",
     tip: "You can reopen this guide from the navbar at any time.",
   },
 ];
@@ -137,7 +137,10 @@ function UserGuide({
         inline: "center",
         behavior: "smooth",
       });
-      window.setTimeout(() => setTargetRect(target.getBoundingClientRect()), 200);
+      window.setTimeout(
+        () => setTargetRect(target.getBoundingClientRect()),
+        200,
+      );
     };
 
     updateTarget();
@@ -259,7 +262,10 @@ function UserGuide({
               >
                 Step {activeStep + 1} of {guideSteps.length}
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 900, color: "#111827" }}>
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: 900, color: "#111827" }}
+              >
                 {step.title}
               </Typography>
             </Box>
