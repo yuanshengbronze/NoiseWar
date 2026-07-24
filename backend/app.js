@@ -517,16 +517,14 @@ const registerSocketHandlers = (io) => {
                     return respond({
                         success: false,
                         errorType: "limit",
-                        error:
-                            "You have used all attempts for this sabotage.",
+                        error: "You have used all attempts for this sabotage.",
                         remainingUses: 0,
                     });
                 }
 
                 const sabotageWord = data.word?.toString().trim() || "sabotage";
 
-                io.to(opponent.socketId).emit(
-                    "receive-sabotage",
+                io.to(opponent.socketId).emit("receive-sabotage",
                     {
                         type: sabotageType,
                         word: sabotageWord,
@@ -534,15 +532,16 @@ const registerSocketHandlers = (io) => {
                             sabotageType === "command-switch"
                                 ? COMMAND_SWITCH_DURATION_MS
                                 : undefined,
-                    },
+                    }
                 );
-
                 return respond({
                     success: true,
                     remainingUses: usage.remaining,
                 });
+
             } catch (error) {
                 console.error("send-sabotage failed:", error);
+
                 if (acquiredSabotageLock && activeSabotageKey) {
                     await client.del(activeSabotageKey);
                 }
